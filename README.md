@@ -63,17 +63,28 @@ The service is configured through environment variables:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `METRIC_NAME` | Name of the Prometheus metric to monitor | (required) |
-| `LABEL_FILTERS` | Label filters to apply to the metric query | (optional) |
+| `LABEL_FILTERS` | Label filters to apply to the metric query | `''` (optional) |
 | `THRESHOLD` | Threshold value with operator (e.g., ">100" or "<50") | (required) |
-| `THRESHOLD_DURATION` | How long the threshold must be exceeded before action | 0s |
-| `POLLING_INTERVAL` | How often to check the metric | 1s |
-| `BACKOFF_DELAY` | Delay between actions after threshold is triggered | 0s |
-| `PROMETHEUS_ENDPOINT` | Prometheus server URL | http://prometheus:9090 |
-| `PLUGIN_DIR` | Directory containing plugin .so files | (optional) |
-| `ACTION_PLUGIN` | Name of the plugin to use for actions | (optional) |
-| `LOG_LEVEL` | Logging level (debug, info, warn, error) | info |
-| `LEADER_ELECTION_ENABLED` | Whether to enable leader election | true |
-| `LEADER_ELECTION_LOCK_NAME` | Name of the lock to use for leader election | metric-reader-leader |
+| `THRESHOLD_DURATION` | How long the threshold must be exceeded before action | `0s` |
+| `POLLING_INTERVAL` | How often to check the metric | `1s` |
+| `BACKOFF_DELAY` | Delay between actions after threshold is triggered | `0s` |
+| `PROMETHEUS_ENDPOINT` | Prometheus server URL | `http://prometheus:9090` |
+| `PLUGIN_DIR` | Directory containing plugin .so files | `''` (optional) |
+| `ACTION_PLUGIN` | Name of the plugin to use for actions | `''` (optional) |
+| `LOG_LEVEL` | Logging level (debug, info, warn, error) | `info` |
+| `LEADER_ELECTION_ENABLED` | Whether to enable leader election | `true` |
+| `LEADER_ELECTION_LOCK_NAME` | Name of the lock to use for leader election | `metric-reader-leader` |
+| `NO_METRIC_BEHAVIOR` | Behavior when no metric data is found (last_value, zero, assume_breached) | `zero` |
+
+### NO_METRIC_BEHAVIOR Options
+
+When the Prometheus query returns no data for the specified metric, the `NO_METRIC_BEHAVIOR` environment variable controls how the metric reader should behave:
+
+- **`last_value`**: Use the last known value of the metric. This is useful when you want to maintain the previous state during temporary data gaps.
+- **`zero`** (default): Set the metric value to zero. This is useful when missing data should be interpreted as no activity or a zero value.
+- **`assume_breached`**: Immediately trigger the threshold breach behavior, as if the threshold condition was met. This is useful when the absence of data itself indicates a problem that should trigger an action.
+
+If `NO_METRIC_BEHAVIOR` is not set, the metric reader defaults to `zero` behavior, setting the metric value to zero when no data is found.
 
 ## Available Plugins
 

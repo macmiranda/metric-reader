@@ -157,19 +157,21 @@ func main() {
 		}
 	}
 
-	// Get no metric behavior from environment variable
+	// Get no metric behavior from environment variable, default to "zero"
 	noMetricBehavior := os.Getenv("NO_METRIC_BEHAVIOR")
-	if noMetricBehavior != "" {
-		switch noMetricBehavior {
-		case "last_value":
-			log.Info().Msg("no metric behavior set to last_value")
-		case "zero":
-			log.Info().Msg("no metric behavior set to zero")
-		case "assume_breached":
-			log.Info().Msg("no metric behavior set to assume_breached")
-		default:
-			log.Fatal().Str("NO_METRIC_BEHAVIOR", noMetricBehavior).Msg("invalid NO_METRIC_BEHAVIOR value")
-		}
+	if noMetricBehavior == "" {
+		noMetricBehavior = "zero"
+	}
+
+	switch noMetricBehavior {
+	case "last_value":
+		log.Info().Msg("no metric behavior set to last_value")
+	case "zero":
+		log.Info().Msg("no metric behavior set to zero")
+	case "assume_breached":
+		log.Info().Msg("no metric behavior set to assume_breached")
+	default:
+		log.Fatal().Str("NO_METRIC_BEHAVIOR", noMetricBehavior).Msg("invalid NO_METRIC_BEHAVIOR value")
 	}
 
 	log.Info().
@@ -203,6 +205,9 @@ func main() {
 	var thresholdActive, thresholdCrossed bool
 	var value, lastValue float64
 	for range ticker.C {
+		// Reset thresholdCrossed at the beginning of each iteration
+		thresholdCrossed = false
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		result, warnings, err := v1api.Query(ctx, query, time.Now())
 		cancel()
@@ -237,15 +242,25 @@ func main() {
 				log.Warn().
 					Str("query", query).
 					Msg("no data found for metric")
-				if noMetricBehavior == "last_value" {
-					value = lastValue
-					log.Info().Msg("using last value")
-				} else if noMetricBehavior == "zero" {
+				switch noMetricBehavior {
+				case "last_value":
+					// Only use last value if we have one, otherwise skip this iteration
+					if lastValue != 0 || thresholdActive {
+						value = lastValue
+						log.Info().Msg("using last value")
+					} else {
+						log.Info().Msg("no last value available, skipping iteration")
+						continue
+					}
+				case "zero":
 					value = 0
 					log.Info().Msg("setting to zero")
-				} else if noMetricBehavior == "assume_breached" {
-					thresholdStartTime = time.Now()
-					thresholdActive = true
+				case "assume_breached":
+					// Only set thresholdStartTime if not already active
+					if !thresholdActive {
+						thresholdStartTime = time.Now()
+						thresholdActive = true
+					}
 					thresholdCrossed = true
 					log.Info().Msg("assuming threshold is breached")
 				}
@@ -309,13 +324,14 @@ func main() {
 				} else if thresholdActive {
 					// Threshold no longer crossed
 					thresholdActive = false
+					duration := time.Since(thresholdStartTime)
 					thresholdStartTime = time.Time{}
 					thresholdCrossed = false
 					log.Info().
 						Str("query", query).
 						Float64("value", value).
 						Str("threshold", thresholdStr).
-						Dur("duration", time.Since(thresholdStartTime)).
+						Dur("duration", duration).
 						Msg("threshold no longer crossed")
 				}
 			}

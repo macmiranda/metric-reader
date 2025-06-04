@@ -4,7 +4,7 @@ TARGET_PLATFORM := if ARCH == "x86_64" { "amd64" } else if ARCH == "aarch64" { "
 
 # Default recipe to run when just is called without arguments
 default:
-    just --list
+    @just --list
 
 # Build the Go application
 build:
@@ -25,16 +25,20 @@ build-image:
 
 # Start services using Docker Compose
 compose-up:
-    docker-compose up -d
+    docker-compose up -d --build
 
 # Stop and remove services using Docker Compose
 compose-down:
     docker-compose down
 
+compose-logs:
+    docker-compose logs -f
+
 # Create and configure Kind cluster
 kind-up:
     kind create cluster --name metric-reader --config kubernetes/kind-config.yaml
     kind load docker-image metric-reader:latest --name metric-reader
+    @just k8s-apply
 
 # Delete Kind cluster
 kind-down:
