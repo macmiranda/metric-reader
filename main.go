@@ -17,8 +17,8 @@ import (
 type thresholdOperator string
 
 const (
-	thresholdOperatorGreaterThan thresholdOperator = ">"
-	thresholdOperatorLessThan    thresholdOperator = "<"
+	greaterThan thresholdOperator = ">"
+	lessThan    thresholdOperator = "<"
 )
 
 type threshold struct {
@@ -157,6 +157,21 @@ func main() {
 		}
 	}
 
+	// Get no metric behavior from environment variable
+	noMetricBehavior := os.Getenv("NO_METRIC_BEHAVIOR")
+	if noMetricBehavior != "" {
+		switch noMetricBehavior {
+		case "last_value":
+			log.Info().Msg("no metric behavior set to last_value")
+		case "zero":
+			log.Info().Msg("no metric behavior set to zero")
+		case "assume_breached":
+			log.Info().Msg("no metric behavior set to assume_breached")
+		default:
+			log.Fatal().Str("NO_METRIC_BEHAVIOR", noMetricBehavior).Msg("invalid NO_METRIC_BEHAVIOR value")
+		}
+	}
+
 	log.Info().
 		Str("metric_name", metricName).
 		Str("prometheus_endpoint", prometheusEndpoint).
@@ -184,10 +199,9 @@ func main() {
 		Dur("polling_interval", pollingInterval).
 		Msg("starting metric reader")
 
-	var thresholdStartTime time.Time
-	var thresholdActive bool
-	var backoffUntil time.Time
-
+	var thresholdStartTime, backoffUntil time.Time
+	var thresholdActive, thresholdCrossed bool
+	var value, lastValue float64
 	for range ticker.C {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		result, warnings, err := v1api.Query(ctx, query, time.Now())
@@ -211,8 +225,7 @@ func main() {
 		if result.Type() == model.ValVector {
 			vector := result.(model.Vector)
 			if len(vector) > 0 {
-				value := float64(vector[0].Value)
-
+				value, lastValue = float64(vector[0].Value), float64(vector[0].Value)
 				log.Debug().
 					Str("query", query).
 					Float64("value", value).
@@ -220,81 +233,91 @@ func main() {
 					Dur("threshold_duration", time.Since(thresholdStartTime)).
 					Time("backoff_until", backoffUntil).
 					Msg("reading metric value")
-
-				// Skip threshold checks if in backoff period
-				if !backoffUntil.IsZero() && time.Now().Before(backoffUntil) {
-					continue
-				}
-
-				// Process threshold if configured
-				if threshold != nil {
-					// Check if threshold is crossed
-					thresholdCrossed := false
-					if threshold.operator == thresholdOperatorGreaterThan && value > threshold.value {
-						thresholdCrossed = true
-					} else if threshold.operator == thresholdOperatorLessThan && value < threshold.value {
-						thresholdCrossed = true
-					}
-
-					// Handle threshold state
-					if thresholdCrossed {
-						if !thresholdActive {
-							// Start monitoring threshold duration
-							thresholdStartTime = time.Now()
-							thresholdActive = true
-							log.Info().
-								Str("query", query).
-								Float64("value", value).
-								Str("threshold", thresholdStr).
-								Msg("threshold crossed")
-						} else if time.Since(thresholdStartTime) >= thresholdDuration {
-							// Threshold exceeded for required duration
-							log.Warn().
-								Str("query", query).
-								Float64("value", value).
-								Str("threshold", thresholdStr).
-								Dur("duration", time.Since(thresholdStartTime)).
-								Msg("threshold exceeded for specified duration")
-
-							// Execute plugin action if configured and this replica is the current leader
-							if actionPlugin != nil && IsLeader() {
-								if err := actionPlugin.Execute(ctx, metricName, value, thresholdStr, time.Since(thresholdStartTime)); err != nil {
-									log.Error().
-										Err(err).
-										Str("plugin", actionPlugin.Name()).
-										Msg("failed to execute plugin action")
-								} else {
-									// Set backoff period after successful action
-									if backoffDelay > 0 {
-										backoffUntil = time.Now().Add(backoffDelay)
-										// reset threshold start time
-										thresholdStartTime = time.Time{}
-										thresholdActive = false
-										log.Info().
-											Str("query", query).
-											Time("backoff_until", backoffUntil).
-											Msg("entering backoff period after action")
-									}
-								}
-							}
-						}
-					} else if thresholdActive {
-						// Threshold no longer crossed
-						thresholdActive = false
-						thresholdStartTime = time.Time{}
-						thresholdCrossed = false
-						log.Info().
-							Str("query", query).
-							Float64("value", value).
-							Str("threshold", thresholdStr).
-							Dur("duration", time.Since(thresholdStartTime)).
-							Msg("threshold no longer crossed")
-					}
-				}
 			} else {
 				log.Warn().
 					Str("query", query).
 					Msg("no data found for metric")
+				if noMetricBehavior == "last_value" {
+					value = lastValue
+					log.Info().Msg("using last value")
+				} else if noMetricBehavior == "zero" {
+					value = 0
+					log.Info().Msg("setting to zero")
+				} else if noMetricBehavior == "assume_breached" {
+					thresholdStartTime = time.Now()
+					thresholdActive = true
+					thresholdCrossed = true
+					log.Info().Msg("assuming threshold is breached")
+				}
+			}
+			// Skip threshold checks if in backoff period
+			if !backoffUntil.IsZero() && time.Now().Before(backoffUntil) {
+				continue
+			}
+
+			// Process threshold if configured
+			if threshold != nil {
+				// Check if threshold is crossed
+				if threshold.operator == greaterThan && value > threshold.value {
+					thresholdCrossed = true
+				} else if threshold.operator == lessThan && value < threshold.value {
+					thresholdCrossed = true
+				}
+
+				// Handle threshold state
+				if thresholdCrossed {
+					if !thresholdActive {
+						// Start monitoring threshold duration
+						thresholdStartTime = time.Now()
+						thresholdActive = true
+						log.Info().
+							Str("query", query).
+							Float64("value", value).
+							Str("threshold", thresholdStr).
+							Msg("threshold crossed")
+					} else if time.Since(thresholdStartTime) >= thresholdDuration {
+						// Threshold exceeded for required duration
+						log.Warn().
+							Str("query", query).
+							Float64("value", value).
+							Str("threshold", thresholdStr).
+							Dur("duration", time.Since(thresholdStartTime)).
+							Msg("threshold exceeded for specified duration")
+
+						// Execute plugin action if configured and this replica is the current leader
+						if actionPlugin != nil && IsLeader() {
+							if err := actionPlugin.Execute(ctx, metricName, value, thresholdStr, time.Since(thresholdStartTime)); err != nil {
+								log.Error().
+									Err(err).
+									Str("plugin", actionPlugin.Name()).
+									Msg("failed to execute plugin action")
+							} else {
+								// Set backoff period after successful action
+								if backoffDelay > 0 {
+									backoffUntil = time.Now().Add(backoffDelay)
+									// reset threshold start time
+									thresholdStartTime = time.Time{}
+									thresholdActive = false
+									log.Info().
+										Str("query", query).
+										Time("backoff_until", backoffUntil).
+										Msg("entering backoff period after action")
+								}
+							}
+						}
+					}
+				} else if thresholdActive {
+					// Threshold no longer crossed
+					thresholdActive = false
+					thresholdStartTime = time.Time{}
+					thresholdCrossed = false
+					log.Info().
+						Str("query", query).
+						Float64("value", value).
+						Str("threshold", thresholdStr).
+						Dur("duration", time.Since(thresholdStartTime)).
+						Msg("threshold no longer crossed")
+				}
 			}
 		} else {
 			log.Error().
