@@ -48,6 +48,14 @@ func parseThreshold(thresholdStr string) (*threshold, error) {
 }
 
 func main() {
+	// Root context for the process and leader election
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start (optional) leader election. If disabled or not possible the instance
+	// assumes singleton behaviour and continues as leader.
+	startLeaderElection(ctx)
+
 	// Configure zerolog
 	zerolog.TimeFieldFormat = time.RFC3339
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -248,8 +256,8 @@ func main() {
 								Dur("duration", time.Since(thresholdStartTime)).
 								Msg("threshold exceeded for specified duration")
 
-							// Execute plugin action if configured
-							if actionPlugin != nil {
+							// Execute plugin action if configured and this replica is the current leader
+							if actionPlugin != nil && IsLeader() {
 								if err := actionPlugin.Execute(ctx, metricName, value, thresholdStr, time.Since(thresholdStartTime)); err != nil {
 									log.Error().
 										Err(err).
