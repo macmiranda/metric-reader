@@ -1,0 +1,193 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metric-reader
+  namespace: default
+  labels:
+    app: metric-reader
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: metric-reader
+  template:
+    metadata:
+      labels:
+        app: metric-reader
+    spec:
+      containers:
+      - name: pause
+        image: gcr.io/google_containers/pause:3.2
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            cpu: 20m
+            memory: 32Mi
+      - name: metric-reader
+        image: metric-reader:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+        env:
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: METRIC_NAME
+          value: "up"
+        - name: THRESHOLD
+          value: ">0"
+        - name: POLLING_INTERVAL
+          value: "15s"
+        - name: BACKOFF_DELAY
+          value: "1m0s"
+        - name: THRESHOLD_DURATION
+          value: "30s"
+        - name: PROMETHEUS_ENDPOINT
+          value: "http://prometheus:9090"
+        - name: ACTION_PLUGIN
+          value: "file_action"
+        - name: FILE_ACTION_DIR
+          value: "/tmp/metric-files"
+        - name: FILE_ACTION_SIZE
+          value: "1048576"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        volumeMounts:
+        - name: metric-files
+          mountPath: /tmp/metric-files
+      serviceAccountName: metric-reader
+      volumes:
+      - name: metric-files
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metric-reader
+  namespace: default
+spec:
+  selector:
+    app: metric-reader
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: metric-reader
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: metric-reader
+  namespace: default
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: metric-reader
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: metric-reader
+  namespace: default
+roleRef:
+  kind: Role
+  name: metric-reader
+  apiGroup: "rbac.authorization.k8s.io"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: prometheus
+  namespace: default
+spec:
+  serviceName: prometheus
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v2.45.0
+        args:
+        - "--config.file=/etc/prometheus/prometheus.yml"
+        - "--storage.tsdb.path=/prometheus"
+        - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+        - "--web.console.templates=/usr/share/prometheus/consoles"
+        - "--web.enable-lifecycle"
+        ports:
+        - containerPort: 9090
+          name: http
+        volumeMounts:
+        - name: config
+          mountPath: /etc/prometheus
+        - name: prometheus-data
+          mountPath: /prometheus
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      volumes:
+      - name: config
+        configMap:
+          name: prometheus-config
+  volumeClaimTemplates:
+  - metadata:
+      name: prometheus-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - port: 9090
+    targetPort: http
+    name: http
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    scrape_configs:
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
