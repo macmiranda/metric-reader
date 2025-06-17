@@ -1,0 +1,51 @@
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+/vendor/
+
+# Binary files
+metric-reader
+plugins/*.so
+
+# IDE specific
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+
+# Logs and databases
+*.log
+*.sqlite
+*.db
+
+# Temporary files
+/tmp/
+/tmp/metric-files/
+*.tmp
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+/dist/
+/build/ 

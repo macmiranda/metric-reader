@@ -10,6 +10,45 @@ A program that monitors Prometheus metrics and executes actions when thresholds 
 - Built-in logging and file creation plugins
 - Configurable polling interval and backoff periods
 
+## Quick Start with Just
+
+This project uses [Just](https://github.com/casey/just) as a command runner. Install it first, then you can use the following commands:
+
+```bash
+# List all available commands
+just
+
+# Build the application
+just build
+
+# Build plugin .so files
+just build-plugins
+
+# Run all tests
+just run-tests
+
+# Build Docker image
+just build-image
+
+# Start services using Docker Compose
+just compose-up
+
+# Stop and remove services using Docker Compose
+just compose-down
+
+# Create and configure Kind cluster
+just kind-up
+
+# Delete Kind cluster
+just kind-down
+
+# Deploy metric-reader to Kind cluster
+just k8s-apply
+
+# Delete metric-reader from Kind cluster
+just k8s-delete
+```
+
 ## Configuration
 
 The service is configured through environment variables:

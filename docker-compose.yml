@@ -1,0 +1,37 @@
+services:
+  metric-reader:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - LOG_LEVEL=info
+      - METRIC_NAME=up
+      - THRESHOLD=>0
+      - POLLING_INTERVAL=15s
+      - BACKOFF_DELAY=1m0s
+      - THRESHOLD_DURATION=30s
+      - PROMETHEUS_ENDPOINT=http://prometheus:9090
+      - ACTION_PLUGIN=file_action
+      - FILE_ACTION_DIR=/tmp/metric-files
+      - FILE_ACTION_SIZE=104857600
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+    

@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.21-bullseye AS builder
+FROM golang:1.24-bookworm AS builder
 
 WORKDIR /app
 COPY . .
@@ -20,7 +20,7 @@ RUN mkdir -p /app/plugins
 RUN go build -buildmode=plugin -o /app/plugins/log_action.so plugins/log_action/log_action.go
 RUN go build -buildmode=plugin -o /app/plugins/file_action.so plugins/file_action/file_action.go
 
-FROM --platform=$TARGETPLATFORM alpine:latest
+FROM alpine:latest
 
 # Install runtime dependencies for plugins
 RUN apk add --no-cache libc6-compat
