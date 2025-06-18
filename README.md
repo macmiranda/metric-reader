@@ -9,6 +9,7 @@ A program that monitors Prometheus metrics and executes actions when thresholds 
 - Plugin system for custom actions
 - Built-in logging and file creation plugins
 - Configurable polling interval and backoff periods
+- Leader election mechanism for running multiple replicas at the same time with a single action outcome.
 
 ## Quick Start with Just
 
@@ -65,6 +66,8 @@ The service is configured through environment variables:
 | `PLUGIN_DIR` | Directory containing plugin .so files | (optional) |
 | `ACTION_PLUGIN` | Name of the plugin to use for actions | (optional) |
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | info |
+| `LEADER_ELECTION_ENABLED` | Whether to enable leader election | true |
+| `LEADER_ELECTION_LOCK_NAME` | Name of the lock to use for leader election | metric-reader-leader |
 
 ## Available Plugins
 
