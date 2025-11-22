@@ -38,7 +38,7 @@ Metric-reader is a lightweight Go application that monitors Prometheus metrics a
 ## Build and Test
 
 ### Prerequisites
-- Go 1.21 or later
+- Go 1.21+ (as specified in go.mod)
 - [Just](https://github.com/casey/just) command runner (optional but recommended)
 
 ### Build Commands
