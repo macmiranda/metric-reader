@@ -11,35 +11,9 @@ A program that monitors Prometheus metrics and executes actions when thresholds 
 - Configurable polling interval and backoff periods
 - Leader election mechanism for running multiple replicas at the same time with a single action outcome.
 
-## Quick Start
+## Quick Start with Just
 
-This project supports both [Just](https://github.com/casey/just) and Make as command runners.
-
-### Using Make
-
-```bash
-# Build the application
-make build
-
-# Build plugin .so files
-make build-plugins
-
-# Run all tests
-make test
-
-# Build Docker image
-make build-image
-
-# Run end-to-end tests (creates Kind cluster, deploys app, and validates)
-make e2e-test
-
-# Clean up (remove binaries, plugins, and Kind cluster)
-make clean
-```
-
-### Using Just
-
-Alternatively, install [Just](https://github.com/casey/just) and use these commands:
+This project uses [Just](https://github.com/casey/just) as a command runner. Install it first, then you can use the following commands:
 
 ```bash
 # List all available commands
@@ -74,6 +48,12 @@ just k8s-apply
 
 # Delete metric-reader from Kind cluster
 just k8s-delete
+
+# Run end-to-end tests (creates Kind cluster, deploys app, and validates)
+just e2e-test
+
+# Clean up (remove binaries, plugins, and Kind cluster)
+just clean
 ```
 
 ## Configuration

@@ -29,6 +29,10 @@ jobs:
         with:
           go-version: '1.21'
 
+      - name: Install Just
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+
       - name: Install Kind
         run: |
           curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
@@ -42,13 +46,13 @@ jobs:
           sudo mv kubectl /usr/local/bin/kubectl
 
       - name: Build application
-        run: make build
+        run: just build
 
       - name: Build plugins
-        run: make build-plugins
+        run: just build-plugins
 
       - name: Run e2e tests
-        run: make e2e-test
+        run: just e2e-test
 
       - name: Show logs on failure
         if: failure()
@@ -62,4 +66,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: make kind-down
+        run: just kind-down
