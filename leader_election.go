@@ -67,6 +67,11 @@ func startLeaderElection(ctx context.Context, config *Config) {
 			return
 		}
 		lockNamespace = strings.TrimSpace(string(namespaceBytes))
+		if lockNamespace == "" {
+			leaderActive.Store(true)
+			log.Warn().Msg("detected namespace is empty, skipping leader election")
+			return
+		}
 		log.Info().Str("namespace", lockNamespace).Msg("auto-detected namespace from service account")
 	}
 
