@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -14,6 +15,12 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
+)
+
+const (
+	// serviceAccountNamespaceFile is the path to the file containing the namespace
+	// of the service account when running in a Kubernetes pod.
+	serviceAccountNamespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 )
 
 // leaderActive is set to true only in the pod currently holding leadership.
@@ -37,18 +44,10 @@ func startLeaderElection(ctx context.Context, config *Config) {
 		return
 	}
 
-	// Leader-election can be opted-out via env var.
-	if !config.LeaderElectionEnabled {
-		leaderActive.Store(true)
-		log.Info().Msg("leader election disabled via LEADER_ELECTION_ENABLED, executing actions on every replica")
-		return
-	}
-
 	hostname, _ := os.Hostname()
 
 	lockName := config.LeaderElectionLockName
-
-	namespace := config.PodNamespace
+	lockNamespace := config.LeaderElectionLockNamespace
 
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
@@ -57,6 +56,23 @@ func startLeaderElection(ctx context.Context, config *Config) {
 		leaderActive.Store(true)
 		log.Warn().Err(err).Msg("unable to get in-cluster config, skipping leader election")
 		return
+	}
+
+	// If namespace is not set, try to detect it from the service account
+	if lockNamespace == "" {
+		namespaceBytes, err := os.ReadFile(serviceAccountNamespaceFile)
+		if err != nil {
+			leaderActive.Store(true)
+			log.Warn().Err(err).Msg("unable to detect namespace from service account, skipping leader election")
+			return
+		}
+		lockNamespace = strings.TrimSpace(string(namespaceBytes))
+		if lockNamespace == "" {
+			leaderActive.Store(true)
+			log.Warn().Msg("detected namespace is empty, skipping leader election")
+			return
+		}
+		log.Info().Str("namespace", lockNamespace).Msg("auto-detected namespace from service account")
 	}
 
 	client, err := kubernetes.NewForConfig(cfg)
@@ -69,7 +85,7 @@ func startLeaderElection(ctx context.Context, config *Config) {
 	lock := &resourcelock.LeaseLock{
 		LeaseMeta: metav1.ObjectMeta{
 			Name:      lockName,
-			Namespace: namespace,
+			Namespace: lockNamespace,
 		},
 		Client: client.CoordinationV1(),
 		LockConfig: resourcelock.ResourceLockConfig{
