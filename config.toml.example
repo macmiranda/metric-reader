@@ -32,4 +32,4 @@ pod_namespace = "default"
 # Plugin-specific configuration
 # File Action Plugin
 file_action_dir = "/tmp/metric-files"
-file_action_size = 104857600  # Size in bytes (default: 100MB)
+file_action_size = 104857600  # Size in bytes (100MB shown here, default is 1MB)
