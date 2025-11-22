@@ -29,6 +29,9 @@ leader_election_enabled = true
 leader_election_lock_name = "metric-reader-leader"
 pod_namespace = "default"
 
+# No metric behavior configuration
+no_metric_behavior = "zero"
+
 # Plugin-specific configuration
 # File Action Plugin
 file_action_dir = "/tmp/metric-files"
