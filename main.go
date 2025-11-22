@@ -43,6 +43,17 @@ func parseThresholdOperator(operatorStr string) (thresholdOperator, error) {
 	}
 }
 
+func isThresholdCrossed(operator thresholdOperator, value float64, threshold float64) bool {
+	switch operator {
+	case thresholdOperatorGreaterThan:
+		return value > threshold
+	case thresholdOperatorLessThan:
+		return value < threshold
+	default:
+		return false
+	}
+}
+
 func main() {
 	// Root context for the process and leader election
 	ctx, cancel := context.WithCancel(context.Background())
@@ -174,7 +185,10 @@ func main() {
 	if thresholdCfg != nil {
 		// Get soft threshold plugin
 		softPluginName := os.Getenv("SOFT_THRESHOLD_PLUGIN")
-		if softPluginName != "" && thresholdCfg.softThreshold != nil {
+		if softPluginName != "" {
+			if thresholdCfg.softThreshold == nil {
+				log.Fatal().Str("plugin", softPluginName).Msg("SOFT_THRESHOLD_PLUGIN specified but SOFT_THRESHOLD is not set")
+			}
 			plugin, ok := PluginRegistry[softPluginName]
 			if !ok {
 				log.Fatal().Str("plugin", softPluginName).Msg("specified soft threshold plugin not found")
@@ -184,7 +198,10 @@ func main() {
 		
 		// Get hard threshold plugin
 		hardPluginName := os.Getenv("HARD_THRESHOLD_PLUGIN")
-		if hardPluginName != "" && thresholdCfg.hardThreshold != nil {
+		if hardPluginName != "" {
+			if thresholdCfg.hardThreshold == nil {
+				log.Fatal().Str("plugin", hardPluginName).Msg("HARD_THRESHOLD_PLUGIN specified but HARD_THRESHOLD is not set")
+			}
 			plugin, ok := PluginRegistry[hardPluginName]
 			if !ok {
 				log.Fatal().Str("plugin", hardPluginName).Msg("specified hard threshold plugin not found")
@@ -283,12 +300,7 @@ func main() {
 								Msg("skipping soft threshold check - in backoff period")
 						} else {
 							// Check if soft threshold is crossed
-							softCrossed := false
-							if thresholdCfg.operator == thresholdOperatorGreaterThan && value > thresholdCfg.softThreshold.value {
-								softCrossed = true
-							} else if thresholdCfg.operator == thresholdOperatorLessThan && value < thresholdCfg.softThreshold.value {
-								softCrossed = true
-							}
+							softCrossed := isThresholdCrossed(thresholdCfg.operator, value, thresholdCfg.softThreshold.value)
 
 							if softCrossed {
 								if !softThresholdActive {
@@ -355,12 +367,7 @@ func main() {
 								Msg("skipping hard threshold check - in backoff period")
 						} else {
 							// Check if hard threshold is crossed
-							hardCrossed := false
-							if thresholdCfg.operator == thresholdOperatorGreaterThan && value > thresholdCfg.hardThreshold.value {
-								hardCrossed = true
-							} else if thresholdCfg.operator == thresholdOperatorLessThan && value < thresholdCfg.hardThreshold.value {
-								hardCrossed = true
-							}
+							hardCrossed := isThresholdCrossed(thresholdCfg.operator, value, thresholdCfg.hardThreshold.value)
 
 							if hardCrossed {
 								if !hardThresholdActive {
