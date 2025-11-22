@@ -201,6 +201,12 @@ go mod verify      # Verify dependencies
    - Write clear, descriptive commit messages
    - Keep commits focused on a single change
    - Reference issue numbers when applicable
+  
+5. **Documentation**
+   - Update the README.md when a new feature is added to the reader.
+   - Every plugin should have its own README.md explaining how to implement it, and use it (e.g. configuration options).
+   - Update the copilot-instructions.md with new features, and ideas for improvement.
+   - Other agents may be used with the same repo so leave instructions for them in AGENTS.md as well.
 
 ## Common Tasks
 
