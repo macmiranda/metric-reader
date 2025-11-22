@@ -20,8 +20,8 @@ type Config struct {
 
 	// Threshold configuration
 	ThresholdOperator       string        `mapstructure:"threshold_operator"`
-	SoftThreshold           float64       `mapstructure:"soft_threshold"`
-	HardThreshold           float64       `mapstructure:"hard_threshold"`
+	SoftThreshold           *float64      `mapstructure:"soft_threshold"`
+	HardThreshold           *float64      `mapstructure:"hard_threshold"`
 	SoftThresholdPlugin     string        `mapstructure:"soft_threshold_plugin"`
 	HardThresholdPlugin     string        `mapstructure:"hard_threshold_plugin"`
 	ThresholdDuration       time.Duration `mapstructure:"threshold_duration"`

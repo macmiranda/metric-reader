@@ -123,7 +123,7 @@ func main() {
 	// Get threshold configuration from config
 	var thresholdCfg *thresholdConfig
 	
-	if config.ThresholdOperator != "" && (config.SoftThreshold != 0 || config.HardThreshold != 0) {
+	if config.ThresholdOperator != "" && (config.SoftThreshold != nil || config.HardThreshold != nil) {
 		operator, err := parseThresholdOperator(config.ThresholdOperator)
 		if err != nil {
 			log.Fatal().Err(err).Msg("invalid THRESHOLD_OPERATOR value")
@@ -134,16 +134,16 @@ func main() {
 		}
 		
 		// Parse soft threshold if provided
-		if config.SoftThreshold != 0 {
+		if config.SoftThreshold != nil {
 			thresholdCfg.softThreshold = &threshold{
-				value: config.SoftThreshold,
+				value: *config.SoftThreshold,
 			}
 		}
 		
 		// Parse hard threshold if provided
-		if config.HardThreshold != 0 {
+		if config.HardThreshold != nil {
 			thresholdCfg.hardThreshold = &threshold{
-				value: config.HardThreshold,
+				value: *config.HardThreshold,
 			}
 		}
 	}
