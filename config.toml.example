@@ -1,0 +1,35 @@
+# Metric Reader Configuration File
+# All settings in this file can be overridden by environment variables
+# by using uppercase names (e.g., LOG_LEVEL, METRIC_NAME)
+
+# Logging configuration
+log_level = "info"  # Options: debug, info, warn, error
+
+# Metric configuration
+metric_name = "up"
+label_filters = ""  # Optional: e.g., 'job="prometheus",instance="localhost:9090"'
+
+# Threshold configuration
+threshold = ">0"  # Format: ">value" or "<value"
+threshold_duration = "30s"  # How long threshold must be exceeded
+backoff_delay = "1m"  # Delay between actions after threshold is triggered
+
+# Polling configuration
+polling_interval = "15s"  # How often to check the metric
+
+# Prometheus configuration
+prometheus_endpoint = "http://prometheus:9090"
+
+# Plugin configuration
+plugin_dir = ""  # Optional: directory containing plugin .so files
+action_plugin = ""  # Optional: name of plugin to execute on threshold breach
+
+# Leader election configuration (for Kubernetes deployments)
+leader_election_enabled = true
+leader_election_lock_name = "metric-reader-leader"
+pod_namespace = "default"
+
+# Plugin-specific configuration
+# File Action Plugin
+file_action_dir = "/tmp/metric-files"
+file_action_size = 104857600  # Size in bytes (100MB shown here, default is 1MB)
