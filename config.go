@@ -38,6 +38,9 @@ type Config struct {
 	LeaderElectionLockName string `mapstructure:"leader_election_lock_name"`
 	PodNamespace           string `mapstructure:"pod_namespace"`
 
+	// No metric behavior configuration
+	NoMetricBehavior string `mapstructure:"no_metric_behavior"`
+
 	// Plugin-specific configuration
 	FileActionDir  string `mapstructure:"file_action_dir"`
 	FileActionSize int64  `mapstructure:"file_action_size"`
@@ -57,6 +60,7 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("leader_election_enabled", true)
 	v.SetDefault("leader_election_lock_name", "metric-reader-leader")
 	v.SetDefault("pod_namespace", "default")
+	v.SetDefault("no_metric_behavior", "zero")
 	v.SetDefault("file_action_dir", "/tmp/metric-files")
 	v.SetDefault("file_action_size", 1024*1024) // 1MB
 
@@ -94,6 +98,7 @@ func LoadConfig() (*Config, error) {
 	v.BindEnv("leader_election_enabled", "LEADER_ELECTION_ENABLED")
 	v.BindEnv("leader_election_lock_name", "LEADER_ELECTION_LOCK_NAME")
 	v.BindEnv("pod_namespace", "POD_NAMESPACE")
+	v.BindEnv("no_metric_behavior", "NO_METRIC_BEHAVIOR")
 	v.BindEnv("file_action_dir", "FILE_ACTION_DIR")
 	v.BindEnv("file_action_size", "FILE_ACTION_SIZE")
 

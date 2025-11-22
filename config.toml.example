@@ -29,6 +29,13 @@ leader_election_enabled = true
 leader_election_lock_name = "metric-reader-leader"
 pod_namespace = "default"
 
+# No metric behavior configuration
+# Options: last_value, zero, assume_breached
+# - last_value: Use the last known value when no metric data is found
+# - zero: Set the metric value to zero when no data is found (default)
+# - assume_breached: Immediately trigger threshold breach behavior when no data is found
+no_metric_behavior = "zero"
+
 # Plugin-specific configuration
 # File Action Plugin
 file_action_dir = "/tmp/metric-files"

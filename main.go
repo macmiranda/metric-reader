@@ -139,11 +139,8 @@ func main() {
 		}
 	}
 
-	// Get no metric behavior from environment variable, default to "zero"
-	noMetricBehavior := os.Getenv("NO_METRIC_BEHAVIOR")
-	if noMetricBehavior == "" {
-		noMetricBehavior = "zero"
-	}
+	// Get no metric behavior from config
+	noMetricBehavior := config.NoMetricBehavior
 
 	switch noMetricBehavior {
 	case "last_value":
