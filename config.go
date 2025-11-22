@@ -49,9 +49,9 @@ type Config struct {
 	FileActionSize int64  `mapstructure:"file_action_size"`
 
 	// EFS Emergency Plugin configuration
-	EFSFileSystemID               string `mapstructure:"efs_file_system_id"`
-	EFSFileSystemPrometheusLabel  string `mapstructure:"efs_file_system_prometheus_label"`
-	AWSRegion                     string `mapstructure:"aws_region"`
+	EFSFileSystemID              string `mapstructure:"efs_file_system_id"`
+	EFSFileSystemPrometheusLabel string `mapstructure:"efs_file_system_prometheus_label"`
+	AWSRegion                    string `mapstructure:"aws_region"`
 }
 
 // LoadConfig loads configuration from file and environment variables

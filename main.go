@@ -49,6 +49,19 @@ func parseThresholdOperator(operatorStr string) (thresholdOperator, error) {
 	}
 }
 
+func parseMissingValueBehavior(behaviorStr string) (missingValueBehavior, error) {
+	switch behaviorStr {
+	case string(missingValueBehaviorLastValue):
+		return missingValueBehaviorLastValue, nil
+	case string(missingValueBehaviorZero):
+		return missingValueBehaviorZero, nil
+	case string(missingValueBehaviorAssumeBreached):
+		return missingValueBehaviorAssumeBreached, nil
+	default:
+		return "", fmt.Errorf("missing value behavior must be 'last_value', 'zero', or 'assume_breached'")
+	}
+}
+
 func isThresholdCrossed(operator thresholdOperator, value float64, threshold float64) bool {
 	switch operator {
 	case thresholdOperatorGreaterThan:
@@ -169,13 +182,10 @@ func main() {
 	prometheusEndpoint := config.PrometheusEndpoint
 
 	// Get missing value behavior from config
-	missingValueBehaviorStr := config.MissingValueBehavior
-	if missingValueBehaviorStr != string(missingValueBehaviorLastValue) &&
-		missingValueBehaviorStr != string(missingValueBehaviorZero) &&
-		missingValueBehaviorStr != string(missingValueBehaviorAssumeBreached) {
-		log.Fatal().Str("MISSING_VALUE_BEHAVIOR", missingValueBehaviorStr).Msg("invalid MISSING_VALUE_BEHAVIOR value; must be 'last_value', 'zero', or 'assume_breached'")
+	missingValueBehavior, err := parseMissingValueBehavior(config.MissingValueBehavior)
+	if err != nil {
+		log.Fatal().Err(err).Str("MISSING_VALUE_BEHAVIOR", config.MissingValueBehavior).Msg("invalid MISSING_VALUE_BEHAVIOR value")
 	}
-	missingValueBehavior := missingValueBehavior(missingValueBehaviorStr)
 
 	// Get plugin directory from config
 	pluginDir := config.PluginDir
@@ -316,25 +326,39 @@ func main() {
 							Str("query", query).
 							Msg("assuming thresholds breached for missing metric")
 
-						// For assume_breached, activate thresholds immediately
-						// Set soft threshold as crossed if configured and not already active
+						// For assume_breached, activate thresholds immediately, respecting backoff periods
+						// Set soft threshold as crossed if configured, not already active, and not in backoff
 						if thresholdCfg.softThreshold != nil && !softThresholdActive {
-							softThresholdStartTime = time.Now()
-							softThresholdActive = true
-							log.Info().
-								Str("query", query).
-								Str("reason", "assume_breached").
-								Msg("soft threshold assumed crossed due to missing data")
+							if softBackoffUntil.IsZero() || time.Now().After(softBackoffUntil) {
+								softThresholdStartTime = time.Now()
+								softThresholdActive = true
+								log.Info().
+									Str("query", query).
+									Str("reason", "assume_breached").
+									Msg("soft threshold assumed crossed due to missing data")
+							} else {
+								log.Debug().
+									Str("query", query).
+									Time("soft_backoff_until", softBackoffUntil).
+									Msg("skipping soft threshold activation - in backoff period")
+							}
 						}
 
-						// Set hard threshold as crossed if configured and not already active
+						// Set hard threshold as crossed if configured, not already active, and not in backoff
 						if thresholdCfg.hardThreshold != nil && !hardThresholdActive {
-							hardThresholdStartTime = time.Now()
-							hardThresholdActive = true
-							log.Info().
-								Str("query", query).
-								Str("reason", "assume_breached").
-								Msg("hard threshold assumed crossed due to missing data")
+							if hardBackoffUntil.IsZero() || time.Now().After(hardBackoffUntil) {
+								hardThresholdStartTime = time.Now()
+								hardThresholdActive = true
+								log.Info().
+									Str("query", query).
+									Str("reason", "assume_breached").
+									Msg("hard threshold assumed crossed due to missing data")
+							} else {
+								log.Debug().
+									Str("query", query).
+									Time("hard_backoff_until", hardBackoffUntil).
+									Msg("skipping hard threshold activation - in backoff period")
+							}
 						}
 					}
 					// Don't process thresholds normally for assume_breached
