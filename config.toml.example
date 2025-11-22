@@ -27,7 +27,8 @@ action_plugin = ""  # Optional: name of plugin to execute on threshold breach
 # Leader election configuration (for Kubernetes deployments)
 leader_election_enabled = true
 leader_election_lock_name = "metric-reader-leader"
-pod_namespace = "default"
+# lock_namespace is optional - if not set, it will be auto-detected from the service account
+# lock_namespace = "default"
 
 # Plugin-specific configuration
 # File Action Plugin

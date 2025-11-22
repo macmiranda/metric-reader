@@ -34,7 +34,8 @@ data:
     # Leader election configuration (for Kubernetes deployments)
     leader_election_enabled = true
     leader_election_lock_name = "metric-reader-leader"
-    pod_namespace = "default"
+    # lock_namespace is optional - if not set, it will be auto-detected from the service account
+    # lock_namespace = "default"
 
     # Plugin-specific configuration
     # File Action Plugin
@@ -75,10 +76,12 @@ spec:
         - containerPort: 8080
         env:
         # Environment variables can override config file values
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
+        # LOCK_NAMESPACE is optional and will be auto-detected if not set
+        # Uncomment to explicitly set the namespace for leader election lock
+        # - name: LOCK_NAMESPACE
+        #   valueFrom:
+        #     fieldRef:
+        #       fieldPath: metadata.namespace
         resources:
           requests:
             cpu: 100m

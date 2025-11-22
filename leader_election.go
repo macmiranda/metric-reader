@@ -48,7 +48,7 @@ func startLeaderElection(ctx context.Context, config *Config) {
 
 	lockName := config.LeaderElectionLockName
 
-	namespace := config.PodNamespace
+	namespace := config.LockNamespace
 
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
@@ -57,6 +57,18 @@ func startLeaderElection(ctx context.Context, config *Config) {
 		leaderActive.Store(true)
 		log.Warn().Err(err).Msg("unable to get in-cluster config, skipping leader election")
 		return
+	}
+
+	// If namespace is not set, try to detect it from the service account
+	if namespace == "" {
+		namespaceBytes, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+		if err != nil {
+			leaderActive.Store(true)
+			log.Warn().Err(err).Msg("unable to detect namespace from service account, skipping leader election")
+			return
+		}
+		namespace = string(namespaceBytes)
+		log.Info().Str("namespace", namespace).Msg("auto-detected namespace from service account")
 	}
 
 	client, err := kubernetes.NewForConfig(cfg)
