@@ -136,10 +136,10 @@ var Plugin EFSEmergencyPlugin
 func init() {
 	// Get EFS filesystem ID from environment (optional if using metric label)
 	fileSystemId := os.Getenv("EFS_FILE_SYSTEM_ID")
-	
+
 	// Get metric label name from environment (optional)
 	metricLabelName := os.Getenv("EFS_FILE_SYSTEM_PROMETHEUS_LABEL")
-	
+
 	// Get Prometheus endpoint from environment
 	prometheusEndpoint := os.Getenv("PROMETHEUS_ENDPOINT")
 	if prometheusEndpoint == "" {
@@ -171,16 +171,16 @@ func init() {
 	// 3. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
 	// 4. Shared credentials file (~/.aws/credentials)
 	ctx := context.Background()
-	
+
 	var cfg aws.Config
 	var err error
-	
+
 	if region != "" {
 		cfg, err = config.LoadDefaultConfig(ctx, config.WithRegion(region))
 	} else {
 		cfg, err = config.LoadDefaultConfig(ctx)
 	}
-	
+
 	if err != nil {
 		log.Error().Err(err).Msg("failed to load AWS configuration - plugin will fail if executed")
 		Plugin = EFSEmergencyPlugin{
@@ -227,13 +227,13 @@ func init() {
 	logEvent := log.Info().
 		Str("region", cfg.Region).
 		Str("prometheus_endpoint", prometheusEndpoint)
-	
+
 	if fileSystemId != "" {
 		logEvent = logEvent.Str("file_system_id", fileSystemId)
 	}
 	if metricLabelName != "" {
 		logEvent = logEvent.Str("metric_label", metricLabelName)
 	}
-	
+
 	logEvent.Msg("EFS emergency plugin initialized")
 }
