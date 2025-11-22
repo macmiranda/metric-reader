@@ -17,7 +17,11 @@ data:
     label_filters = ""
 
     # Threshold configuration
-    threshold = ">0"
+    threshold_operator = "greater_than"
+    soft_threshold = 0.0
+    hard_threshold = 0.5
+    soft_threshold_plugin = "log_action"
+    hard_threshold_plugin = "file_action"
     threshold_duration = "30s"
     backoff_delay = "1m0s"
 
@@ -29,7 +33,6 @@ data:
 
     # Plugin configuration
     plugin_dir = ""
-    action_plugin = "file_action"
 
     # Leader election configuration (for Kubernetes deployments)
     leader_election_enabled = true
@@ -75,6 +78,16 @@ spec:
         - containerPort: 8080
         env:
         # Environment variables can override config file values
+        - name: THRESHOLD_OPERATOR
+          value: "greater_than"
+        - name: SOFT_THRESHOLD
+          value: "0"
+        - name: SOFT_THRESHOLD_PLUGIN
+          value: "log_action"
+        - name: HARD_THRESHOLD
+          value: "0.5"
+        - name: HARD_THRESHOLD_PLUGIN
+          value: "file_action"
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
