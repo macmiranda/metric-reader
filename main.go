@@ -19,6 +19,14 @@ const (
 	thresholdOperatorLessThan    thresholdOperator = "less_than"
 )
 
+type missingValueBehavior string
+
+const (
+	missingValueBehaviorLastValue      missingValueBehavior = "last_value"
+	missingValueBehaviorZero           missingValueBehavior = "zero"
+	missingValueBehaviorAssumeBreached missingValueBehavior = "assume_breached"
+)
+
 type threshold struct {
 	value  float64
 	plugin ActionPlugin
@@ -161,10 +169,13 @@ func main() {
 	prometheusEndpoint := config.PrometheusEndpoint
 
 	// Get missing value behavior from config
-	missingValueBehavior := config.MissingValueBehavior
-	if missingValueBehavior != "last_value" && missingValueBehavior != "zero" && missingValueBehavior != "assume_breached" {
-		log.Fatal().Str("MISSING_VALUE_BEHAVIOR", missingValueBehavior).Msg("invalid MISSING_VALUE_BEHAVIOR value; must be 'last_value', 'zero', or 'assume_breached'")
+	missingValueBehaviorStr := config.MissingValueBehavior
+	if missingValueBehaviorStr != string(missingValueBehaviorLastValue) &&
+		missingValueBehaviorStr != string(missingValueBehaviorZero) &&
+		missingValueBehaviorStr != string(missingValueBehaviorAssumeBreached) {
+		log.Fatal().Str("MISSING_VALUE_BEHAVIOR", missingValueBehaviorStr).Msg("invalid MISSING_VALUE_BEHAVIOR value; must be 'last_value', 'zero', or 'assume_breached'")
 	}
+	missingValueBehavior := missingValueBehavior(missingValueBehaviorStr)
 
 	// Get plugin directory from config
 	pluginDir := config.PluginDir
@@ -186,7 +197,7 @@ func main() {
 		Dur("polling_interval", pollingInterval).
 		Dur("threshold_duration", thresholdDuration).
 		Str("query", query).
-		Str("missing_value_behavior", missingValueBehavior)
+		Str("missing_value_behavior", string(missingValueBehavior))
 
 	if thresholdCfg != nil {
 		logEvent = logEvent.Str("threshold_operator", string(thresholdCfg.operator))
@@ -274,11 +285,11 @@ func main() {
 				// Handle missing value based on configured behavior
 				log.Warn().
 					Str("query", query).
-					Str("missing_value_behavior", missingValueBehavior).
+					Str("missing_value_behavior", string(missingValueBehavior)).
 					Msg("no data found for metric")
 
 				switch missingValueBehavior {
-				case "last_value":
+				case missingValueBehaviorLastValue:
 					if hasLastValue {
 						value = lastValue
 						valueFound = true
@@ -291,22 +302,22 @@ func main() {
 							Str("query", query).
 							Msg("no last value available, skipping threshold check")
 					}
-				case "zero":
+				case missingValueBehaviorZero:
 					value = 0
 					valueFound = true
 					log.Info().
 						Str("query", query).
 						Float64("value", value).
 						Msg("using zero for missing metric")
-				case "assume_breached":
-					// Set both thresholds as crossed immediately
+				case missingValueBehaviorAssumeBreached:
+					// Activate configured thresholds immediately when data is missing
 					if thresholdCfg != nil {
 						log.Warn().
 							Str("query", query).
 							Msg("assuming thresholds breached for missing metric")
 
-						// For assume_breached, we need to activate thresholds immediately
-						// Set soft threshold as crossed
+						// For assume_breached, activate thresholds immediately
+						// Set soft threshold as crossed if configured and not already active
 						if thresholdCfg.softThreshold != nil && !softThresholdActive {
 							softThresholdStartTime = time.Now()
 							softThresholdActive = true
@@ -316,7 +327,7 @@ func main() {
 								Msg("soft threshold assumed crossed due to missing data")
 						}
 
-						// Set hard threshold as crossed
+						// Set hard threshold as crossed if configured and not already active
 						if thresholdCfg.hardThreshold != nil && !hardThresholdActive {
 							hardThresholdStartTime = time.Now()
 							hardThresholdActive = true
