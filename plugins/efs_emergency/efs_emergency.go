@@ -22,6 +22,14 @@ type EFSEmergencyPlugin struct {
 
 // Execute implements the ActionPlugin interface
 func (p *EFSEmergencyPlugin) Execute(ctx context.Context, metricName string, value float64, threshold string, duration time.Duration) error {
+	// Validate plugin is properly configured
+	if p.fileSystemId == "" {
+		return fmt.Errorf("EFS_FILE_SYSTEM_ID environment variable is required")
+	}
+	if p.client == nil {
+		return fmt.Errorf("AWS client not initialized - check AWS credentials and configuration")
+	}
+
 	log.Info().
 		Str("metric_name", metricName).
 		Float64("value", value).
@@ -62,7 +70,14 @@ func init() {
 	// Get EFS filesystem ID from environment
 	fileSystemId := os.Getenv("EFS_FILE_SYSTEM_ID")
 	if fileSystemId == "" {
-		log.Fatal().Msg("EFS_FILE_SYSTEM_ID environment variable is required for efs_emergency plugin")
+		// Don't fail during tests or when the plugin is not being used
+		log.Warn().Msg("EFS_FILE_SYSTEM_ID environment variable not set - plugin will fail if executed")
+		Plugin = EFSEmergencyPlugin{
+			fileSystemId: "",
+			region:       "",
+			client:       nil,
+		}
+		return
 	}
 
 	// Get AWS region from environment (optional, will use default if not set)
@@ -86,7 +101,13 @@ func init() {
 	}
 	
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to load AWS configuration")
+		log.Error().Err(err).Msg("failed to load AWS configuration - plugin will fail if executed")
+		Plugin = EFSEmergencyPlugin{
+			fileSystemId: fileSystemId,
+			region:       region,
+			client:       nil,
+		}
+		return
 	}
 
 	// Create EFS client
