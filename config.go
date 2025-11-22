@@ -44,6 +44,11 @@ type Config struct {
 	// Plugin-specific configuration
 	FileActionDir  string `mapstructure:"file_action_dir"`
 	FileActionSize int64  `mapstructure:"file_action_size"`
+
+	// EFS Emergency Plugin configuration
+	EFSFileSystemID               string `mapstructure:"efs_file_system_id"`
+	EFSFileSystemPrometheusLabel  string `mapstructure:"efs_file_system_prometheus_label"`
+	AWSRegion                     string `mapstructure:"aws_region"`
 }
 
 // LoadConfig loads configuration from file and environment variables
@@ -62,6 +67,11 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("leader_election_lock_namespace", "")
 	v.SetDefault("file_action_dir", "/tmp/metric-files")
 	v.SetDefault("file_action_size", 1024*1024) // 1MB
+
+	// EFS Emergency Plugin defaults
+	// Note: EFS_FILE_SYSTEM_ID and EFS_FILE_SYSTEM_PROMETHEUS_LABEL have no defaults
+	// as at least one must be explicitly configured
+	// AWS_REGION has no default as it's auto-detected by AWS SDK
 
 	// Set config file name and search paths
 	v.SetConfigName("config")
@@ -102,6 +112,9 @@ func LoadConfig() (*Config, error) {
 	v.BindEnv("leader_election_lock_namespace", "LEADER_ELECTION_LOCK_NAMESPACE")
 	v.BindEnv("file_action_dir", "FILE_ACTION_DIR")
 	v.BindEnv("file_action_size", "FILE_ACTION_SIZE")
+	v.BindEnv("efs_file_system_id", "EFS_FILE_SYSTEM_ID")
+	v.BindEnv("efs_file_system_prometheus_label", "EFS_FILE_SYSTEM_PROMETHEUS_LABEL")
+	v.BindEnv("aws_region", "AWS_REGION")
 
 	// Parse config into struct
 	var config Config

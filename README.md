@@ -113,6 +113,24 @@ Creates a file of configurable size when a metric threshold is exceeded.
 
 Logs threshold events with detailed information about the metric value and duration.
 
+### EFS Emergency Plugin
+
+Switches an AWS EFS filesystem from bursting throughput mode to elastic throughput mode. Designed for emergency situations when EFS burst credits are depleted.
+
+**Configuration (via config file or environment variables):**
+
+- `efs_file_system_id` / `EFS_FILE_SYSTEM_ID`: The EFS filesystem ID (static - optional if using label)
+- `efs_file_system_prometheus_label` / `EFS_FILE_SYSTEM_PROMETHEUS_LABEL`: Prometheus metric label name to extract filesystem ID from (optional if using static ID)
+- `aws_region` / `AWS_REGION`: AWS region where the filesystem is located (optional, auto-detected)
+- `prometheus_endpoint` / `PROMETHEUS_ENDPOINT`: Prometheus server URL (optional, default: `http://prometheus:9090`)
+
+**Requirements:**
+
+- AWS credentials (supports IRSA on EKS, EC2 instance profiles, environment variables)
+- IAM permissions: `elasticfilesystem:UpdateFileSystem`, `elasticfilesystem:DescribeFileSystems`
+
+See [plugins/efs_emergency/README.md](plugins/efs_emergency/README.md) for detailed setup instructions, IAM configuration, dynamic label extraction, and IRSA setup on EKS.
+
 ## CI/CD
 
 This project includes automated end-to-end tests that run on every push to any branch (excluding tags):

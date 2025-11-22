@@ -19,6 +19,7 @@ RUN go build -o metric-reader
 RUN mkdir -p /app/plugins
 RUN go build -buildmode=plugin -o /app/plugins/log_action.so plugins/log_action/log_action.go
 RUN go build -buildmode=plugin -o /app/plugins/file_action.so plugins/file_action/file_action.go
+RUN go build -buildmode=plugin -o /app/plugins/efs_emergency.so plugins/efs_emergency/efs_emergency.go
 
 FROM alpine:latest
 

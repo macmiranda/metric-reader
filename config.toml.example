@@ -37,3 +37,9 @@ leader_election_lock_name = "metric-reader-leader"
 # File Action Plugin
 file_action_dir = "/tmp/metric-files"
 file_action_size = 104857600  # Size in bytes (100MB shown here, default is 1MB)
+
+# EFS Emergency Plugin
+# Note: At least one of efs_file_system_id or efs_file_system_prometheus_label must be set
+# efs_file_system_id = "fs-0123456789abcdef0"  # Static EFS filesystem ID (optional if using label)
+# efs_file_system_prometheus_label = "file_system_id"  # Prometheus label containing filesystem ID (optional if using static ID)
+# aws_region = "us-east-1"  # AWS region (optional, auto-detected by AWS SDK if not set)
