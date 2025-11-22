@@ -202,7 +202,7 @@ func main() {
 		Msg("starting metric reader")
 
 	var thresholdStartTime, backoffUntil time.Time
-	var thresholdActive, thresholdCrossed bool
+	var thresholdActive, thresholdCrossed, hasLastValue bool
 	var value, lastValue float64
 	for range ticker.C {
 		// Reset thresholdCrossed at the beginning of each iteration
@@ -231,6 +231,7 @@ func main() {
 			vector := result.(model.Vector)
 			if len(vector) > 0 {
 				value, lastValue = float64(vector[0].Value), float64(vector[0].Value)
+				hasLastValue = true
 				log.Debug().
 					Str("query", query).
 					Float64("value", value).
@@ -245,7 +246,7 @@ func main() {
 				switch noMetricBehavior {
 				case "last_value":
 					// Only use last value if we have one, otherwise skip this iteration
-					if lastValue != 0 || thresholdActive {
+					if hasLastValue {
 						value = lastValue
 						log.Info().Msg("using last value")
 					} else {
@@ -267,6 +268,10 @@ func main() {
 			}
 			// Skip threshold checks if in backoff period
 			if !backoffUntil.IsZero() && time.Now().Before(backoffUntil) {
+				log.Debug().
+					Str("query", query).
+					Time("backoff_until", backoffUntil).
+					Msg("skipping iteration due to backoff period")
 				continue
 			}
 
