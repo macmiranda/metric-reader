@@ -175,14 +175,18 @@ func LoadConfig() (*Config, error) {
 	v.BindEnv("leader_election_lock_namespace", "LEADER_ELECTION_LOCK_NAMESPACE")
 	v.BindEnv("missing_value_behavior", "MISSING_VALUE_BEHAVIOR")
 
-	// Bind plugin-specific environment variables (backward compatibility)
+	// Bind plugin-specific environment variables to both old and new structures
+	// Note: The same environment variable names are used for both to maintain backward compatibility
+	// After unmarshaling, the sync helper functions will reconcile any differences between the two structures
+	
+	// Bind to old flat structure (backward compatibility)
 	v.BindEnv("file_action_dir", "FILE_ACTION_DIR")
 	v.BindEnv("file_action_size", "FILE_ACTION_SIZE")
 	v.BindEnv("efs_file_system_id", "EFS_FILE_SYSTEM_ID")
 	v.BindEnv("efs_file_system_prometheus_label", "EFS_FILE_SYSTEM_PROMETHEUS_LABEL")
 	v.BindEnv("aws_region", "AWS_REGION")
 
-	// Bind plugin-specific environment variables (new nested structure)
+	// Bind to new nested structure (same environment variable names)
 	v.BindEnv("plugins.file_action.dir", "FILE_ACTION_DIR")
 	v.BindEnv("plugins.file_action.size", "FILE_ACTION_SIZE")
 	v.BindEnv("plugins.efs_emergency.file_system_id", "EFS_FILE_SYSTEM_ID")
