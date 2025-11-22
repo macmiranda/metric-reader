@@ -80,21 +80,34 @@ For a more permissive policy (not recommended for production):
 
 ## Configuration
 
+The plugin can be configured via either a configuration file (`config.toml`) or environment variables. Environment variables take precedence over configuration file values.
+
+### Configuration File
+
+Add the following to your `config.toml`:
+
+```toml
+# EFS Emergency Plugin
+efs_file_system_id = "fs-0123456789abcdef0"  # Static filesystem ID (optional if using label)
+# efs_file_system_prometheus_label = "file_system_id"  # Label containing filesystem ID (optional if using static ID)
+# aws_region = "us-east-1"  # AWS region (optional, auto-detected if not set)
+```
+
 ### Environment Variables
 
 The plugin supports two methods for determining the EFS filesystem ID:
 
-1. **Static Configuration**: Set `EFS_FILE_SYSTEM_ID` directly
-2. **Dynamic from Metric Labels**: Set `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` to extract the filesystem ID from Prometheus metric labels
+1. **Static Configuration**: Set `EFS_FILE_SYSTEM_ID` (or `efs_file_system_id` in config file)
+2. **Dynamic from Metric Labels**: Set `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` (or `efs_file_system_prometheus_label` in config file)
 
 At least one of `EFS_FILE_SYSTEM_ID` or `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` must be configured.
 
-| Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `EFS_FILE_SYSTEM_ID` | Conditional* | The EFS filesystem ID to manage (static) | `fs-0123456789abcdef0` |
-| `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` | Conditional* | Name of the Prometheus metric label containing the filesystem ID | `file_system_id` |
-| `AWS_REGION` | No | AWS region where the EFS filesystem is located | `us-east-1` (auto-detected if not set) |
-| `PROMETHEUS_ENDPOINT` | No | Prometheus server URL (required when using `EFS_FILE_SYSTEM_PROMETHEUS_LABEL`) | `http://prometheus:9090` (default) |
+| Variable | Config File Key | Required | Description | Example |
+|----------|----------------|----------|-------------|---------|
+| `EFS_FILE_SYSTEM_ID` | `efs_file_system_id` | Conditional* | The EFS filesystem ID to manage (static) | `fs-0123456789abcdef0` |
+| `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` | `efs_file_system_prometheus_label` | Conditional* | Name of the Prometheus metric label containing the filesystem ID | `file_system_id` |
+| `AWS_REGION` | `aws_region` | No | AWS region where the EFS filesystem is located | `us-east-1` (auto-detected if not set) |
+| `PROMETHEUS_ENDPOINT` | `prometheus_endpoint` | No | Prometheus server URL (required when using label-based ID) | `http://prometheus:9090` (default) |
 
 \* Either `EFS_FILE_SYSTEM_ID` or `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` must be set. If both are set, `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` takes precedence.
 

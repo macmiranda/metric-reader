@@ -77,12 +77,12 @@ Logs threshold events with detailed information about the metric value and durat
 
 Switches an AWS EFS filesystem from bursting throughput mode to elastic throughput mode when metric thresholds are exceeded. Designed for emergency situations where burst credits are depleted.
 
-**Configuration:**
+**Configuration (via config file or environment variables):**
 
-- `EFS_FILE_SYSTEM_ID`: The EFS filesystem ID (static - optional if `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` is set)
-- `EFS_FILE_SYSTEM_PROMETHEUS_LABEL`: Prometheus metric label name to extract filesystem ID from (optional if `EFS_FILE_SYSTEM_ID` is set)
-- `AWS_REGION`: AWS region where the filesystem is located (optional, auto-detected)
-- `PROMETHEUS_ENDPOINT`: Prometheus server URL (optional, default: `http://prometheus:9090`)
+- `efs_file_system_id` / `EFS_FILE_SYSTEM_ID`: The EFS filesystem ID (static - optional if using label)
+- `efs_file_system_prometheus_label` / `EFS_FILE_SYSTEM_PROMETHEUS_LABEL`: Prometheus metric label name to extract filesystem ID from (optional if using static ID)
+- `aws_region` / `AWS_REGION`: AWS region where the filesystem is located (optional, auto-detected)
+- `prometheus_endpoint` / `PROMETHEUS_ENDPOINT`: Prometheus server URL (optional, default: `http://prometheus:9090`)
 
 **Requirements:**
 
@@ -92,6 +92,7 @@ Switches an AWS EFS filesystem from bursting throughput mode to elastic throughp
 **Features:**
 - Supports dynamic filesystem ID extraction from Prometheus metric labels
 - Fallback to static configuration if label query fails
+- Configurable via config file or environment variables
 
 See [efs_emergency/README.md](efs_emergency/README.md) for detailed documentation.
 
