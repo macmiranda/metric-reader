@@ -10,7 +10,11 @@ metric_name = "up"
 label_filters = ""
 
 # Threshold configuration
-threshold = ">0"
+threshold_operator = "greater_than"
+soft_threshold = 0.0
+hard_threshold = 0.5
+soft_threshold_plugin = "log_action"
+hard_threshold_plugin = "file_action"
 threshold_duration = "30s"
 backoff_delay = "1m0s"
 
@@ -22,7 +26,6 @@ prometheus_endpoint = "http://prometheus:9090"
 
 # Plugin configuration
 plugin_dir = ""
-action_plugin = "file_action"
 
 # Leader election configuration (for Kubernetes deployments)
 leader_election_enabled = true

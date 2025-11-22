@@ -19,9 +19,13 @@ type Config struct {
 	LabelFilters string `mapstructure:"label_filters"`
 
 	// Threshold configuration
-	Threshold         string        `mapstructure:"threshold"`
-	ThresholdDuration time.Duration `mapstructure:"threshold_duration"`
-	BackoffDelay      time.Duration `mapstructure:"backoff_delay"`
+	ThresholdOperator       string        `mapstructure:"threshold_operator"`
+	SoftThreshold           float64       `mapstructure:"soft_threshold"`
+	HardThreshold           float64       `mapstructure:"hard_threshold"`
+	SoftThresholdPlugin     string        `mapstructure:"soft_threshold_plugin"`
+	HardThresholdPlugin     string        `mapstructure:"hard_threshold_plugin"`
+	ThresholdDuration       time.Duration `mapstructure:"threshold_duration"`
+	BackoffDelay            time.Duration `mapstructure:"backoff_delay"`
 
 	// Polling configuration
 	PollingInterval time.Duration `mapstructure:"polling_interval"`
@@ -30,8 +34,7 @@ type Config struct {
 	PrometheusEndpoint string `mapstructure:"prometheus_endpoint"`
 
 	// Plugin configuration
-	PluginDir    string `mapstructure:"plugin_dir"`
-	ActionPlugin string `mapstructure:"action_plugin"`
+	PluginDir string `mapstructure:"plugin_dir"`
 
 	// Leader election configuration
 	LeaderElectionEnabled  bool   `mapstructure:"leader_election_enabled"`
@@ -84,13 +87,16 @@ func LoadConfig() (*Config, error) {
 	v.BindEnv("log_level", "LOG_LEVEL")
 	v.BindEnv("metric_name", "METRIC_NAME")
 	v.BindEnv("label_filters", "LABEL_FILTERS")
-	v.BindEnv("threshold", "THRESHOLD")
+	v.BindEnv("threshold_operator", "THRESHOLD_OPERATOR")
+	v.BindEnv("soft_threshold", "SOFT_THRESHOLD")
+	v.BindEnv("hard_threshold", "HARD_THRESHOLD")
+	v.BindEnv("soft_threshold_plugin", "SOFT_THRESHOLD_PLUGIN")
+	v.BindEnv("hard_threshold_plugin", "HARD_THRESHOLD_PLUGIN")
 	v.BindEnv("threshold_duration", "THRESHOLD_DURATION")
 	v.BindEnv("backoff_delay", "BACKOFF_DELAY")
 	v.BindEnv("polling_interval", "POLLING_INTERVAL")
 	v.BindEnv("prometheus_endpoint", "PROMETHEUS_ENDPOINT")
 	v.BindEnv("plugin_dir", "PLUGIN_DIR")
-	v.BindEnv("action_plugin", "ACTION_PLUGIN")
 	v.BindEnv("leader_election_enabled", "LEADER_ELECTION_ENABLED")
 	v.BindEnv("leader_election_lock_name", "LEADER_ELECTION_LOCK_NAME")
 	v.BindEnv("pod_namespace", "POD_NAMESPACE")

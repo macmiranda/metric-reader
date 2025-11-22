@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/api"
@@ -121,14 +120,11 @@ func main() {
 		query = metricName
 	}
 
-	// Get threshold configuration from environment variables
+	// Get threshold configuration from config
 	var thresholdCfg *thresholdConfig
-	thresholdOperatorStr := os.Getenv("THRESHOLD_OPERATOR")
-	softThresholdStr := os.Getenv("SOFT_THRESHOLD")
-	hardThresholdStr := os.Getenv("HARD_THRESHOLD")
 	
-	if thresholdOperatorStr != "" && (softThresholdStr != "" || hardThresholdStr != "") {
-		operator, err := parseThresholdOperator(thresholdOperatorStr)
+	if config.ThresholdOperator != "" && (config.SoftThreshold != 0 || config.HardThreshold != 0) {
+		operator, err := parseThresholdOperator(config.ThresholdOperator)
 		if err != nil {
 			log.Fatal().Err(err).Msg("invalid THRESHOLD_OPERATOR value")
 		}
@@ -138,24 +134,16 @@ func main() {
 		}
 		
 		// Parse soft threshold if provided
-		if softThresholdStr != "" {
-			softValue, err := strconv.ParseFloat(softThresholdStr, 64)
-			if err != nil {
-				log.Fatal().Err(err).Msg("invalid SOFT_THRESHOLD value")
-			}
+		if config.SoftThreshold != 0 {
 			thresholdCfg.softThreshold = &threshold{
-				value: softValue,
+				value: config.SoftThreshold,
 			}
 		}
 		
 		// Parse hard threshold if provided
-		if hardThresholdStr != "" {
-			hardValue, err := strconv.ParseFloat(hardThresholdStr, 64)
-			if err != nil {
-				log.Fatal().Err(err).Msg("invalid HARD_THRESHOLD value")
-			}
+		if config.HardThreshold != 0 {
 			thresholdCfg.hardThreshold = &threshold{
-				value: hardValue,
+				value: config.HardThreshold,
 			}
 		}
 	}
@@ -182,8 +170,8 @@ func main() {
 
 	// Assign plugins to thresholds
 	if thresholdCfg != nil {
-		validateThresholdPlugin(os.Getenv("SOFT_THRESHOLD_PLUGIN"), thresholdCfg.softThreshold, "SOFT")
-		validateThresholdPlugin(os.Getenv("HARD_THRESHOLD_PLUGIN"), thresholdCfg.hardThreshold, "HARD")
+		validateThresholdPlugin(config.SoftThresholdPlugin, thresholdCfg.softThreshold, "SOFT")
+		validateThresholdPlugin(config.HardThresholdPlugin, thresholdCfg.hardThreshold, "HARD")
 	}
 
 	logEvent := log.Info().
