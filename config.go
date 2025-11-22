@@ -71,6 +71,42 @@ type Config struct {
 	AWSRegion                    string `mapstructure:"aws_region"`
 }
 
+// syncStringWithDefault syncs a string field between nested and flat config with a default value
+// If one has the default and the other doesn't, copy from the non-default one
+// If both differ and nested is not default, prefer nested (new structure)
+func syncStringWithDefault(nested *string, flat *string, defaultValue string) {
+	if *nested == defaultValue && *flat != defaultValue {
+		*nested = *flat
+	} else if *flat == defaultValue && *nested != defaultValue {
+		*flat = *nested
+	} else if *flat != *nested {
+		*flat = *nested
+	}
+}
+
+// syncInt64WithDefault syncs an int64 field between nested and flat config with a default value
+func syncInt64WithDefault(nested *int64, flat *int64, defaultValue int64) {
+	if *nested == defaultValue && *flat != defaultValue {
+		*nested = *flat
+	} else if *flat == defaultValue && *nested != defaultValue {
+		*flat = *nested
+	} else if *flat != *nested {
+		*flat = *nested
+	}
+}
+
+// syncStringField syncs a string field between nested and flat config (no defaults)
+// Syncs non-empty values, preferring nested when both are set
+func syncStringField(nested *string, flat *string) {
+	if *nested == "" && *flat != "" {
+		*nested = *flat
+	} else if *flat == "" && *nested != "" {
+		*flat = *nested
+	} else if *flat != *nested && *nested != "" {
+		*flat = *nested
+	}
+}
+
 // LoadConfig loads configuration from file and environment variables
 // Environment variables take precedence over config file values
 func LoadConfig() (*Config, error) {
@@ -160,64 +196,16 @@ func LoadConfig() (*Config, error) {
 	}
 
 	// Handle backward compatibility bidirectionally
-	// If old flat config has non-default values and new nested config is at defaults, copy from old to new
-	// If new nested config has non-default values and old flat config is at defaults, copy from new to old
+	// Sync string fields with defaults
+	syncStringWithDefault(&config.Plugins.FileAction.Dir, &config.FileActionDir, "/tmp/metric-files")
 	
-	// Default values for comparison
-	defaultFileActionDir := "/tmp/metric-files"
-	defaultFileActionSize := int64(1024 * 1024)
+	// Sync int64 fields with defaults
+	syncInt64WithDefault(&config.Plugins.FileAction.Size, &config.FileActionSize, int64(1024*1024))
 	
-	// Sync FileAction.Dir
-	if config.Plugins.FileAction.Dir == defaultFileActionDir && config.FileActionDir != defaultFileActionDir {
-		// Old config has non-default value, use it
-		config.Plugins.FileAction.Dir = config.FileActionDir
-	} else if config.FileActionDir == defaultFileActionDir && config.Plugins.FileAction.Dir != defaultFileActionDir {
-		// New config has non-default value, use it
-		config.FileActionDir = config.Plugins.FileAction.Dir
-	} else if config.FileActionDir != config.Plugins.FileAction.Dir {
-		// Both have non-default values and they differ - prefer nested config (new structure)
-		config.FileActionDir = config.Plugins.FileAction.Dir
-	}
-	
-	// Sync FileAction.Size
-	if config.Plugins.FileAction.Size == defaultFileActionSize && config.FileActionSize != defaultFileActionSize {
-		// Old config has non-default value, use it
-		config.Plugins.FileAction.Size = config.FileActionSize
-	} else if config.FileActionSize == defaultFileActionSize && config.Plugins.FileAction.Size != defaultFileActionSize {
-		// New config has non-default value, use it
-		config.FileActionSize = config.Plugins.FileAction.Size
-	} else if config.FileActionSize != config.Plugins.FileAction.Size {
-		// Both have non-default values and they differ - prefer nested config (new structure)
-		config.FileActionSize = config.Plugins.FileAction.Size
-	}
-	
-	// Sync EFS Emergency config (no defaults to compare against, just sync non-empty values)
-	if config.Plugins.EFSEmergency.FileSystemID == "" && config.EFSFileSystemID != "" {
-		config.Plugins.EFSEmergency.FileSystemID = config.EFSFileSystemID
-	} else if config.EFSFileSystemID == "" && config.Plugins.EFSEmergency.FileSystemID != "" {
-		config.EFSFileSystemID = config.Plugins.EFSEmergency.FileSystemID
-	} else if config.EFSFileSystemID != config.Plugins.EFSEmergency.FileSystemID && config.Plugins.EFSEmergency.FileSystemID != "" {
-		// Both have values and they differ - prefer nested config (new structure)
-		config.EFSFileSystemID = config.Plugins.EFSEmergency.FileSystemID
-	}
-	
-	if config.Plugins.EFSEmergency.FileSystemPrometheusLabel == "" && config.EFSFileSystemPrometheusLabel != "" {
-		config.Plugins.EFSEmergency.FileSystemPrometheusLabel = config.EFSFileSystemPrometheusLabel
-	} else if config.EFSFileSystemPrometheusLabel == "" && config.Plugins.EFSEmergency.FileSystemPrometheusLabel != "" {
-		config.EFSFileSystemPrometheusLabel = config.Plugins.EFSEmergency.FileSystemPrometheusLabel
-	} else if config.EFSFileSystemPrometheusLabel != config.Plugins.EFSEmergency.FileSystemPrometheusLabel && config.Plugins.EFSEmergency.FileSystemPrometheusLabel != "" {
-		// Both have values and they differ - prefer nested config (new structure)
-		config.EFSFileSystemPrometheusLabel = config.Plugins.EFSEmergency.FileSystemPrometheusLabel
-	}
-	
-	if config.Plugins.EFSEmergency.AWSRegion == "" && config.AWSRegion != "" {
-		config.Plugins.EFSEmergency.AWSRegion = config.AWSRegion
-	} else if config.AWSRegion == "" && config.Plugins.EFSEmergency.AWSRegion != "" {
-		config.AWSRegion = config.Plugins.EFSEmergency.AWSRegion
-	} else if config.AWSRegion != config.Plugins.EFSEmergency.AWSRegion && config.Plugins.EFSEmergency.AWSRegion != "" {
-		// Both have values and they differ - prefer nested config (new structure)
-		config.AWSRegion = config.Plugins.EFSEmergency.AWSRegion
-	}
+	// Sync string fields without defaults (just non-empty values)
+	syncStringField(&config.Plugins.EFSEmergency.FileSystemID, &config.EFSFileSystemID)
+	syncStringField(&config.Plugins.EFSEmergency.FileSystemPrometheusLabel, &config.EFSFileSystemPrometheusLabel)
+	syncStringField(&config.Plugins.EFSEmergency.AWSRegion, &config.AWSRegion)
 
 	return &config, nil
 }
