@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -52,38 +51,45 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Load configuration from file and environment variables
+	config, err := LoadConfig()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to load configuration")
+	}
+
 	// Start (optional) leader election. If disabled or not possible the instance
 	// assumes singleton behaviour and continues as leader.
-	startLeaderElection(ctx)
+	startLeaderElection(ctx, config)
 
 	// Configure zerolog
 	zerolog.TimeFieldFormat = time.RFC3339
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
-	// Set log level from environment
-	if level := os.Getenv("LOG_LEVEL"); level != "" {
-		switch level {
-		case "debug":
-			zerolog.SetGlobalLevel(zerolog.DebugLevel)
-		case "info":
-			zerolog.SetGlobalLevel(zerolog.InfoLevel)
-		case "warn":
-			zerolog.SetGlobalLevel(zerolog.WarnLevel)
-		case "error":
-			zerolog.SetGlobalLevel(zerolog.ErrorLevel)
-		default:
-			log.Fatal().Str("LOG_LEVEL", level).Msg("invalid LOG_LEVEL value")
-		}
+	// Set log level from config
+	switch config.LogLevel {
+	case "debug":
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	case "info":
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	case "warn":
+		zerolog.SetGlobalLevel(zerolog.WarnLevel)
+	case "error":
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+	case "":
+		// Default to info if not set
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	default:
+		log.Fatal().Str("LOG_LEVEL", config.LogLevel).Msg("invalid LOG_LEVEL value")
 	}
 
-	// Get metric name from environment variable
-	metricName := os.Getenv("METRIC_NAME")
+	// Get metric name from config
+	metricName := config.MetricName
 	if metricName == "" {
-		log.Fatal().Msg("METRIC_NAME environment variable is required")
+		log.Fatal().Msg("METRIC_NAME is required")
 	}
 
-	// Get label filters from environment variable
-	labelFilters := os.Getenv("LABEL_FILTERS")
+	// Get label filters from config
+	labelFilters := config.LabelFilters
 	var query string
 	if labelFilters != "" {
 		query = fmt.Sprintf("%s{%s}", metricName, labelFilters)
@@ -91,8 +97,8 @@ func main() {
 		query = metricName
 	}
 
-	// Get threshold from environment variable
-	thresholdStr := os.Getenv("THRESHOLD")
+	// Get threshold from config
+	thresholdStr := config.Threshold
 	var threshold *threshold
 	if thresholdStr != "" {
 		var err error
@@ -102,52 +108,28 @@ func main() {
 		}
 	}
 
-	// Get threshold duration from environment variable
-	thresholdDuration := 0 * time.Second
-	if durationStr := os.Getenv("THRESHOLD_DURATION"); durationStr != "" {
-		duration, err := time.ParseDuration(durationStr)
-		if err != nil {
-			log.Fatal().Err(err).Msg("invalid THRESHOLD_DURATION value")
-		}
-		thresholdDuration = duration
-	}
+	// Get threshold duration from config
+	thresholdDuration := config.ThresholdDuration
 
-	// Get backoff delay from environment variable
-	backoffDelay := 0 * time.Second
-	if delayStr := os.Getenv("BACKOFF_DELAY"); delayStr != "" {
-		delay, err := time.ParseDuration(delayStr)
-		if err != nil {
-			log.Fatal().Err(err).Msg("invalid BACKOFF_DELAY value")
-		}
-		backoffDelay = delay
-	}
+	// Get backoff delay from config
+	backoffDelay := config.BackoffDelay
 
-	// Get polling interval from environment variable, default to 1 second
-	pollingInterval := 1 * time.Second
-	if intervalStr := os.Getenv("POLLING_INTERVAL"); intervalStr != "" {
-		interval, err := time.ParseDuration(intervalStr)
-		if err != nil {
-			log.Fatal().Err(err).Msg("invalid POLLING_INTERVAL value, must be a valid duration (e.g. 15s, 1m, 1h)")
-		}
-		pollingInterval = interval
-	}
+	// Get polling interval from config
+	pollingInterval := config.PollingInterval
 
-	// Get Prometheus endpoint from environment variable, default to local Prometheus
-	prometheusEndpoint := os.Getenv("PROMETHEUS_ENDPOINT")
-	if prometheusEndpoint == "" {
-		prometheusEndpoint = "http://prometheus:9090"
-	}
+	// Get Prometheus endpoint from config
+	prometheusEndpoint := config.PrometheusEndpoint
 
-	// Get plugin directory from environment variable
-	pluginDir := os.Getenv("PLUGIN_DIR")
+	// Get plugin directory from config
+	pluginDir := config.PluginDir
 	if pluginDir != "" {
 		if err := LoadPluginsFromDirectory(pluginDir); err != nil {
 			log.Error().Err(err).Msg("failed to load plugins")
 		}
 	}
 
-	// Get action plugin name from environment variable
-	actionPluginName := os.Getenv("ACTION_PLUGIN")
+	// Get action plugin name from config
+	actionPluginName := config.ActionPlugin
 	var actionPlugin ActionPlugin
 	if actionPluginName != "" {
 		var ok bool
