@@ -219,3 +219,86 @@ aws_region = "eu-west-1"
 		t.Errorf("Expected backward compatible aws_region 'eu-west-1', got %q", config.AWSRegion)
 	}
 }
+
+func TestBackwardCompatibleFlatTOMLConfig(t *testing.T) {
+	// Save current working directory
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	// Clear any existing env vars
+	envVars := []string{"FILE_ACTION_DIR", "FILE_ACTION_SIZE", "EFS_FILE_SYSTEM_ID", "AWS_REGION"}
+	savedEnvs := make(map[string]string)
+	for _, key := range envVars {
+		savedEnvs[key] = os.Getenv(key)
+		os.Unsetenv(key)
+	}
+	defer func() {
+		for key, value := range savedEnvs {
+			if value != "" {
+				os.Setenv(key, value)
+			} else {
+				os.Unsetenv(key)
+			}
+		}
+	}()
+
+	// Create a temporary directory for the test
+	tmpDir := t.TempDir()
+	
+	// Create a config file with old flat structure (backward compatibility)
+	configContent := `log_level = "debug"
+metric_name = "test_metric"
+threshold_operator = "greater_than"
+
+# Old flat structure for backward compatibility
+file_action_dir = "/old/flat/path"
+file_action_size = 3145728
+efs_file_system_id = "fs-old-flat"
+aws_region = "ap-south-1"
+`
+	
+	configPath := tmpDir + "/config.toml"
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+	
+	// Change to temp directory so config file is found
+	os.Chdir(tmpDir)
+	
+	// Load config
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+	
+	// Verify old flat structure still works
+	if config.FileActionDir != "/old/flat/path" {
+		t.Errorf("Expected backward compatible file_action_dir '/old/flat/path', got %q", config.FileActionDir)
+	}
+	if config.FileActionSize != 3145728 {
+		t.Errorf("Expected backward compatible file_action_size 3145728, got %d", config.FileActionSize)
+	}
+	if config.EFSFileSystemID != "fs-old-flat" {
+		t.Errorf("Expected backward compatible efs_file_system_id 'fs-old-flat', got %q", config.EFSFileSystemID)
+	}
+	if config.AWSRegion != "ap-south-1" {
+		t.Errorf("Expected backward compatible aws_region 'ap-south-1', got %q", config.AWSRegion)
+	}
+	
+	// Verify new nested structure also gets populated
+	if config.Plugins.FileAction.Dir != "/old/flat/path" {
+		t.Errorf("Expected nested plugins.file_action.dir '/old/flat/path', got %q", config.Plugins.FileAction.Dir)
+	}
+	if config.Plugins.FileAction.Size != 3145728 {
+		t.Errorf("Expected nested plugins.file_action.size 3145728, got %d", config.Plugins.FileAction.Size)
+	}
+	if config.Plugins.EFSEmergency.FileSystemID != "fs-old-flat" {
+		t.Errorf("Expected nested plugins.efs_emergency.file_system_id 'fs-old-flat', got %q", config.Plugins.EFSEmergency.FileSystemID)
+	}
+	if config.Plugins.EFSEmergency.AWSRegion != "ap-south-1" {
+		t.Errorf("Expected nested plugins.efs_emergency.aws_region 'ap-south-1', got %q", config.Plugins.EFSEmergency.AWSRegion)
+	}
+}
