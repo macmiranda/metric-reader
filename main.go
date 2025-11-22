@@ -54,6 +54,23 @@ func isThresholdCrossed(operator thresholdOperator, value float64, threshold flo
 	}
 }
 
+func validateThresholdPlugin(pluginName string, thresholdValue *threshold, thresholdType string) {
+	if pluginName != "" {
+		if thresholdValue == nil {
+			log.Fatal().Str("plugin", pluginName).Msgf("%s_THRESHOLD_PLUGIN specified but %s_THRESHOLD is not set", thresholdType, thresholdType)
+		}
+		plugin, ok := PluginRegistry[pluginName]
+		if !ok {
+			log.Fatal().Str("plugin", pluginName).Msgf("specified %s threshold plugin not found", thresholdType)
+		}
+		thresholdValue.plugin = plugin
+	}
+}
+
+func formatThresholdString(operator thresholdOperator, value float64) string {
+	return fmt.Sprintf("%s %.2f", operator, value)
+}
+
 func main() {
 	// Root context for the process and leader election
 	ctx, cancel := context.WithCancel(context.Background())
@@ -183,31 +200,8 @@ func main() {
 
 	// Assign plugins to thresholds
 	if thresholdCfg != nil {
-		// Get soft threshold plugin
-		softPluginName := os.Getenv("SOFT_THRESHOLD_PLUGIN")
-		if softPluginName != "" {
-			if thresholdCfg.softThreshold == nil {
-				log.Fatal().Str("plugin", softPluginName).Msg("SOFT_THRESHOLD_PLUGIN specified but SOFT_THRESHOLD is not set")
-			}
-			plugin, ok := PluginRegistry[softPluginName]
-			if !ok {
-				log.Fatal().Str("plugin", softPluginName).Msg("specified soft threshold plugin not found")
-			}
-			thresholdCfg.softThreshold.plugin = plugin
-		}
-		
-		// Get hard threshold plugin
-		hardPluginName := os.Getenv("HARD_THRESHOLD_PLUGIN")
-		if hardPluginName != "" {
-			if thresholdCfg.hardThreshold == nil {
-				log.Fatal().Str("plugin", hardPluginName).Msg("HARD_THRESHOLD_PLUGIN specified but HARD_THRESHOLD is not set")
-			}
-			plugin, ok := PluginRegistry[hardPluginName]
-			if !ok {
-				log.Fatal().Str("plugin", hardPluginName).Msg("specified hard threshold plugin not found")
-			}
-			thresholdCfg.hardThreshold.plugin = plugin
-		}
+		validateThresholdPlugin(os.Getenv("SOFT_THRESHOLD_PLUGIN"), thresholdCfg.softThreshold, "SOFT")
+		validateThresholdPlugin(os.Getenv("HARD_THRESHOLD_PLUGIN"), thresholdCfg.hardThreshold, "HARD")
 	}
 
 	logEvent := log.Info().
@@ -324,7 +318,7 @@ func main() {
 
 									// Execute plugin action if configured and this replica is the current leader
 									if thresholdCfg.softThreshold.plugin != nil && IsLeader() {
-										thresholdStr := fmt.Sprintf("%s %.2f", thresholdCfg.operator, thresholdCfg.softThreshold.value)
+										thresholdStr := formatThresholdString(thresholdCfg.operator, thresholdCfg.softThreshold.value)
 										if err := thresholdCfg.softThreshold.plugin.Execute(ctx, metricName, value, thresholdStr, time.Since(softThresholdStartTime)); err != nil {
 											log.Error().
 												Err(err).
@@ -391,7 +385,7 @@ func main() {
 
 									// Execute plugin action if configured and this replica is the current leader
 									if thresholdCfg.hardThreshold.plugin != nil && IsLeader() {
-										thresholdStr := fmt.Sprintf("%s %.2f", thresholdCfg.operator, thresholdCfg.hardThreshold.value)
+										thresholdStr := formatThresholdString(thresholdCfg.operator, thresholdCfg.hardThreshold.value)
 										if err := thresholdCfg.hardThreshold.plugin.Execute(ctx, metricName, value, thresholdStr, time.Since(hardThresholdStartTime)); err != nil {
 											log.Error().
 												Err(err).
