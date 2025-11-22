@@ -84,6 +84,22 @@ Creates a file of configurable size when a metric threshold is exceeded.
 
 Logs threshold events with detailed information about the metric value and duration.
 
+### EFS Emergency Plugin
+
+Switches an AWS EFS filesystem from bursting throughput mode to elastic throughput mode. Designed for emergency situations when EFS burst credits are depleted.
+
+**Configuration:**
+
+- `EFS_FILE_SYSTEM_ID`: The EFS filesystem ID (required)
+- `AWS_REGION`: AWS region where the filesystem is located (optional)
+
+**Requirements:**
+
+- AWS credentials (supports IRSA on EKS, EC2 instance profiles, environment variables)
+- IAM permissions: `elasticfilesystem:UpdateFileSystem`, `elasticfilesystem:DescribeFileSystems`
+
+See [plugins/efs_emergency/README.md](plugins/efs_emergency/README.md) for detailed setup instructions, IAM configuration, and IRSA setup on EKS.
+
 ## Building
 
 ```bash

@@ -14,6 +14,7 @@ build:
 build-plugins:
     GOARCH={{TARGET_PLATFORM}} go build -buildmode=plugin -o plugins/file_action.so plugins/file_action/file_action.go
     GOARCH={{TARGET_PLATFORM}} go build -buildmode=plugin -o plugins/log_action.so plugins/log_action/log_action.go
+    GOARCH={{TARGET_PLATFORM}} go build -buildmode=plugin -o plugins/efs_emergency.so plugins/efs_emergency/efs_emergency.go
 
 # Run all tests
 run-tests:
