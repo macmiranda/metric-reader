@@ -52,16 +52,22 @@ k8s-logs:
 	kubectl logs -l app=metric-reader --all-containers=true --tail=50
 
 # Run end-to-end test
-e2e-test: build-image kind-up kind-load-image k8s-apply k8s-wait
+e2e-test:
+	@echo "Starting e2e test..."
+	$(MAKE) build-image
+	$(MAKE) kind-up || (echo "Failed to create Kind cluster"; exit 1)
+	$(MAKE) kind-load-image || (echo "Failed to load image"; $(MAKE) kind-down; exit 1)
+	$(MAKE) k8s-apply || (echo "Failed to apply Kubernetes resources"; $(MAKE) kind-down; exit 1)
+	$(MAKE) k8s-wait || (echo "Failed waiting for pods to be ready"; $(MAKE) kind-down; exit 1)
 	@echo "Running e2e test validation..."
 	@echo "Checking metric-reader deployment..."
-	kubectl get deployment metric-reader
+	kubectl get deployment metric-reader || ($(MAKE) kind-down; exit 1)
 	@echo "Checking metric-reader pods..."
-	kubectl get pods -l app=metric-reader
+	kubectl get pods -l app=metric-reader || ($(MAKE) kind-down; exit 1)
 	@echo "Checking prometheus deployment..."
-	kubectl get statefulset prometheus
+	kubectl get statefulset prometheus || ($(MAKE) kind-down; exit 1)
 	@echo "Verifying metric-reader is running..."
-	kubectl logs -l app=metric-reader --all-containers=true --tail=20 | grep -i "metric-reader\|prometheus\|started" || true
+	@kubectl logs -l app=metric-reader --all-containers=true --tail=20 || true
 	@echo "E2E test completed successfully!"
 
 # Clean up all resources
