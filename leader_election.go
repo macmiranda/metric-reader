@@ -25,14 +25,17 @@ func IsLeader() bool {
 }
 
 // startLeaderElection initialises the optional Kubernetes leader-election process.
-// When leader-election is disabled (LEADER_ELECTION_ENABLED=false) the function
-// simply marks the instance as leader and returns.
-func startLeaderElection(ctx context.Context) {
-	// Configure klog to use zerolog for consistent logging across the application.
-	// This ensures that logs from Kubernetes client-go libraries use the same
-	// structured logging format as the rest of the application.
+// When leader-election is disabled the function simply marks the instance as leader and returns.
+func startLeaderElection(ctx context.Context, config *Config) {
 	zerologAdapter := zerologr.New(&log.Logger)
 	klog.SetLogger(zerologAdapter)
+
+	// Leader-election can be opted-out via config.
+	if !config.LeaderElectionEnabled {
+		leaderActive.Store(true)
+		log.Info().Msg("leader election disabled, executing actions on every replica")
+		return
+	}
 
 	// Leader-election can be opted-out via env var.
 	if !config.LeaderElectionEnabled {

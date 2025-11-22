@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -103,12 +102,4 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &config, nil
-}
-
-// GetString returns a string value from viper with environment variable override
-func GetString(key string) string {
-	v := viper.New()
-	v.AutomaticEnv()
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	return v.GetString(key)
 }
