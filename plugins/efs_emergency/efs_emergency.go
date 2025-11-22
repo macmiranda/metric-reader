@@ -57,7 +57,7 @@ func (p *EFSEmergencyPlugin) Execute(ctx context.Context, metricName string, val
 
 	// Validate we have a filesystem ID
 	if fileSystemId == "" {
-		return fmt.Errorf("no filesystem ID available - set EFS_FILE_SYSTEM_ID or configure EFS_METRIC_LABEL with valid metric label")
+		return fmt.Errorf("no filesystem ID available - set EFS_FILE_SYSTEM_ID or configure EFS_FILE_SYSTEM_PROMETHEUS_LABEL with valid metric label")
 	}
 	if p.client == nil {
 		return fmt.Errorf("AWS client not initialized - check AWS credentials and configuration")
@@ -138,7 +138,7 @@ func init() {
 	fileSystemId := os.Getenv("EFS_FILE_SYSTEM_ID")
 	
 	// Get metric label name from environment (optional)
-	metricLabelName := os.Getenv("EFS_METRIC_LABEL")
+	metricLabelName := os.Getenv("EFS_FILE_SYSTEM_PROMETHEUS_LABEL")
 	
 	// Get Prometheus endpoint from environment
 	prometheusEndpoint := os.Getenv("PROMETHEUS_ENDPOINT")
@@ -149,7 +149,7 @@ func init() {
 	// Validate configuration
 	if fileSystemId == "" && metricLabelName == "" {
 		// Don't fail during tests or when the plugin is not being used
-		log.Warn().Msg("Neither EFS_FILE_SYSTEM_ID nor EFS_METRIC_LABEL configured - plugin will fail if executed")
+		log.Warn().Msg("Neither EFS_FILE_SYSTEM_ID nor EFS_FILE_SYSTEM_PROMETHEUS_LABEL configured - plugin will fail if executed")
 		Plugin = EFSEmergencyPlugin{
 			fileSystemId:      "",
 			metricLabelName:   "",

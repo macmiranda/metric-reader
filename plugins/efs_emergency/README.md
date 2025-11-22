@@ -85,22 +85,22 @@ For a more permissive policy (not recommended for production):
 The plugin supports two methods for determining the EFS filesystem ID:
 
 1. **Static Configuration**: Set `EFS_FILE_SYSTEM_ID` directly
-2. **Dynamic from Metric Labels**: Set `EFS_METRIC_LABEL` to extract the filesystem ID from Prometheus metric labels
+2. **Dynamic from Metric Labels**: Set `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` to extract the filesystem ID from Prometheus metric labels
 
-At least one of `EFS_FILE_SYSTEM_ID` or `EFS_METRIC_LABEL` must be configured.
+At least one of `EFS_FILE_SYSTEM_ID` or `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` must be configured.
 
 | Variable | Required | Description | Example |
 |----------|----------|-------------|---------|
 | `EFS_FILE_SYSTEM_ID` | Conditional* | The EFS filesystem ID to manage (static) | `fs-0123456789abcdef0` |
-| `EFS_METRIC_LABEL` | Conditional* | Name of the Prometheus metric label containing the filesystem ID | `file_system_id` |
+| `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` | Conditional* | Name of the Prometheus metric label containing the filesystem ID | `file_system_id` |
 | `AWS_REGION` | No | AWS region where the EFS filesystem is located | `us-east-1` (auto-detected if not set) |
-| `PROMETHEUS_ENDPOINT` | No | Prometheus server URL (required when using `EFS_METRIC_LABEL`) | `http://prometheus:9090` (default) |
+| `PROMETHEUS_ENDPOINT` | No | Prometheus server URL (required when using `EFS_FILE_SYSTEM_PROMETHEUS_LABEL`) | `http://prometheus:9090` (default) |
 
-\* Either `EFS_FILE_SYSTEM_ID` or `EFS_METRIC_LABEL` must be set. If both are set, `EFS_METRIC_LABEL` takes precedence.
+\* Either `EFS_FILE_SYSTEM_ID` or `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` must be set. If both are set, `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` takes precedence.
 
 ### Dynamic Filesystem ID from Metric Labels
 
-When `EFS_METRIC_LABEL` is configured, the plugin will:
+When `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` is configured, the plugin will:
 
 1. Query Prometheus for the metric that triggered the threshold
 2. Extract the specified label from the metric's label set
@@ -114,7 +114,7 @@ aws_efs_burst_credit_balance{file_system_id="fs-0123456789abcdef0",region="us-ea
 aws_efs_burst_credit_balance{file_system_id="fs-9876543210fedcba0",region="us-west-2"} 500000000
 ```
 
-With `EFS_METRIC_LABEL=file_system_id`, the plugin will extract `fs-0123456789abcdef0` or `fs-9876543210fedcba0` depending on which metric triggered the threshold.
+With `EFS_FILE_SYSTEM_PROMETHEUS_LABEL=file_system_id`, the plugin will extract `fs-0123456789abcdef0` or `fs-9876543210fedcba0` depending on which metric triggered the threshold.
 
 ## Setting Up IRSA on EKS
 
@@ -286,7 +286,7 @@ spec:
 
 ### Kubernetes Deployment with Dynamic Filesystem ID from Labels
 
-This example shows how to use `EFS_METRIC_LABEL` to dynamically determine the filesystem ID from Prometheus metric labels. This is useful when monitoring multiple filesystems:
+This example shows how to use `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` to dynamically determine the filesystem ID from Prometheus metric labels. This is useful when monitoring multiple filesystems:
 
 ```yaml
 apiVersion: apps/v1
@@ -325,7 +325,7 @@ spec:
         - name: PLUGIN_DIR
           value: "/plugins"
         # Use metric label instead of static filesystem ID
-        - name: EFS_METRIC_LABEL
+        - name: EFS_FILE_SYSTEM_PROMETHEUS_LABEL
           value: "file_system_id"
         - name: AWS_REGION
           value: "us-east-1"

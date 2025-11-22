@@ -24,15 +24,15 @@ func TestPluginNameMethod(t *testing.T) {
 	}
 }
 
-// TestEnvironmentVariableValidation tests that the plugin requires EFS_FILE_SYSTEM_ID or EFS_METRIC_LABEL
+// TestEnvironmentVariableValidation tests that the plugin requires EFS_FILE_SYSTEM_ID or EFS_FILE_SYSTEM_PROMETHEUS_LABEL
 func TestEnvironmentVariableValidation(t *testing.T) {
-	// This test verifies that EFS_FILE_SYSTEM_ID or EFS_METRIC_LABEL is required
+	// This test verifies that EFS_FILE_SYSTEM_ID or EFS_FILE_SYSTEM_PROMETHEUS_LABEL is required
 	// Note: We can't easily test init() function failure, but we can verify
 	// the environment variable is set in the current test environment
 	fileSystemId := os.Getenv("EFS_FILE_SYSTEM_ID")
-	metricLabel := os.Getenv("EFS_METRIC_LABEL")
+	metricLabel := os.Getenv("EFS_FILE_SYSTEM_PROMETHEUS_LABEL")
 	if fileSystemId == "" && metricLabel == "" {
-		t.Log("Neither EFS_FILE_SYSTEM_ID nor EFS_METRIC_LABEL is set - this is expected for testing")
+		t.Log("Neither EFS_FILE_SYSTEM_ID nor EFS_FILE_SYSTEM_PROMETHEUS_LABEL is set - this is expected for testing")
 		t.Log("In production, at least one of these environment variables must be set")
 	}
 }
