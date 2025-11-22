@@ -97,6 +97,15 @@ All configuration options can be set via environment variables using uppercase n
 | `LEADER_ELECTION_ENABLED` | Whether to enable leader election | true |
 | `LEADER_ELECTION_LOCK_NAME` | Name of the lock to use for leader election | metric-reader-leader |
 | `POD_NAMESPACE` | Kubernetes namespace for leader election | default |
+| `MISSING_VALUE_BEHAVIOR` | Behavior when metric returns no data: `last_value`, `zero`, `assume_breached` | zero |
+
+### Missing Value Behavior
+
+When a Prometheus query returns no data, the behavior is controlled by `MISSING_VALUE_BEHAVIOR`:
+
+- **`last_value`**: Uses the last successfully retrieved metric value. If no previous value exists, threshold checks are skipped for that iteration.
+- **`zero`** (default): Treats the missing value as 0 and processes threshold checks normally.
+- **`assume_breached`**: Immediately marks all configured thresholds as crossed, starting the threshold duration timer. This is useful for detecting when a metric disappears entirely.
 
 ## Available Plugins
 

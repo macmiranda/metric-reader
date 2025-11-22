@@ -19,13 +19,13 @@ type Config struct {
 	LabelFilters string `mapstructure:"label_filters"`
 
 	// Threshold configuration
-	ThresholdOperator       string        `mapstructure:"threshold_operator"`
-	SoftThreshold           *float64      `mapstructure:"soft_threshold"`
-	HardThreshold           *float64      `mapstructure:"hard_threshold"`
-	SoftThresholdPlugin     string        `mapstructure:"soft_threshold_plugin"`
-	HardThresholdPlugin     string        `mapstructure:"hard_threshold_plugin"`
-	ThresholdDuration       time.Duration `mapstructure:"threshold_duration"`
-	BackoffDelay            time.Duration `mapstructure:"backoff_delay"`
+	ThresholdOperator   string        `mapstructure:"threshold_operator"`
+	SoftThreshold       *float64      `mapstructure:"soft_threshold"`
+	HardThreshold       *float64      `mapstructure:"hard_threshold"`
+	SoftThresholdPlugin string        `mapstructure:"soft_threshold_plugin"`
+	HardThresholdPlugin string        `mapstructure:"hard_threshold_plugin"`
+	ThresholdDuration   time.Duration `mapstructure:"threshold_duration"`
+	BackoffDelay        time.Duration `mapstructure:"backoff_delay"`
 
 	// Polling configuration
 	PollingInterval time.Duration `mapstructure:"polling_interval"`
@@ -40,6 +40,9 @@ type Config struct {
 	LeaderElectionEnabled  bool   `mapstructure:"leader_election_enabled"`
 	LeaderElectionLockName string `mapstructure:"leader_election_lock_name"`
 	PodNamespace           string `mapstructure:"pod_namespace"`
+
+	// Missing value behavior
+	MissingValueBehavior string `mapstructure:"missing_value_behavior"`
 
 	// Plugin-specific configuration
 	FileActionDir  string `mapstructure:"file_action_dir"`
@@ -65,6 +68,7 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("leader_election_enabled", true)
 	v.SetDefault("leader_election_lock_name", "metric-reader-leader")
 	v.SetDefault("pod_namespace", "default")
+	v.SetDefault("missing_value_behavior", "zero")
 	v.SetDefault("file_action_dir", "/tmp/metric-files")
 	v.SetDefault("file_action_size", 1024*1024) // 1MB
 
@@ -110,6 +114,7 @@ func LoadConfig() (*Config, error) {
 	v.BindEnv("leader_election_enabled", "LEADER_ELECTION_ENABLED")
 	v.BindEnv("leader_election_lock_name", "LEADER_ELECTION_LOCK_NAME")
 	v.BindEnv("pod_namespace", "POD_NAMESPACE")
+	v.BindEnv("missing_value_behavior", "MISSING_VALUE_BEHAVIOR")
 	v.BindEnv("file_action_dir", "FILE_ACTION_DIR")
 	v.BindEnv("file_action_size", "FILE_ACTION_SIZE")
 	v.BindEnv("efs_file_system_id", "EFS_FILE_SYSTEM_ID")
