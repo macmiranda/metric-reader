@@ -1,0 +1,69 @@
+name: End-to-End Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - '**'
+
+# Cancel previous runs if a new commit is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install Just
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --tag 1.25.2 --to /usr/local/bin
+
+      - name: Install Kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
+      - name: Build application
+        run: just build
+
+      - name: Build plugins
+        run: just build-plugins
+
+      - name: Run e2e tests
+        run: just e2e-test
+
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          echo "=== Metric Reader Logs ==="
+          kubectl logs -l app=metric-reader --all-containers=true --tail=100 || true
+          echo "=== Prometheus Logs ==="
+          kubectl logs -l app=prometheus --tail=100 || true
+          echo "=== Deployment Status ==="
+          kubectl get all || true
+
+      - name: Cleanup
+        if: always()
+        run: just kind-down
