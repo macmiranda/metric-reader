@@ -96,15 +96,17 @@ Switches an AWS EFS filesystem from bursting throughput mode to elastic throughp
 
 **Configuration:**
 
-- `EFS_FILE_SYSTEM_ID`: The EFS filesystem ID (required)
+- `EFS_FILE_SYSTEM_ID`: The EFS filesystem ID (static - optional if `EFS_METRIC_LABEL` is set)
+- `EFS_METRIC_LABEL`: Prometheus metric label name to extract filesystem ID from (optional if `EFS_FILE_SYSTEM_ID` is set)
 - `AWS_REGION`: AWS region where the filesystem is located (optional)
+- `PROMETHEUS_ENDPOINT`: Prometheus server URL (optional, default: `http://prometheus:9090`)
 
 **Requirements:**
 
 - AWS credentials (supports IRSA on EKS, EC2 instance profiles, environment variables)
 - IAM permissions: `elasticfilesystem:UpdateFileSystem`, `elasticfilesystem:DescribeFileSystems`
 
-See [plugins/efs_emergency/README.md](plugins/efs_emergency/README.md) for detailed setup instructions, IAM configuration, and IRSA setup on EKS.
+See [plugins/efs_emergency/README.md](plugins/efs_emergency/README.md) for detailed setup instructions, IAM configuration, dynamic label extraction, and IRSA setup on EKS.
 
 ## CI/CD
 

@@ -24,15 +24,16 @@ func TestPluginNameMethod(t *testing.T) {
 	}
 }
 
-// TestEnvironmentVariableValidation tests that the plugin requires EFS_FILE_SYSTEM_ID
+// TestEnvironmentVariableValidation tests that the plugin requires EFS_FILE_SYSTEM_ID or EFS_METRIC_LABEL
 func TestEnvironmentVariableValidation(t *testing.T) {
-	// This test verifies that EFS_FILE_SYSTEM_ID is required
+	// This test verifies that EFS_FILE_SYSTEM_ID or EFS_METRIC_LABEL is required
 	// Note: We can't easily test init() function failure, but we can verify
 	// the environment variable is set in the current test environment
 	fileSystemId := os.Getenv("EFS_FILE_SYSTEM_ID")
-	if fileSystemId == "" {
-		t.Log("EFS_FILE_SYSTEM_ID is not set - this is expected for testing")
-		t.Log("In production, this environment variable must be set")
+	metricLabel := os.Getenv("EFS_METRIC_LABEL")
+	if fileSystemId == "" && metricLabel == "" {
+		t.Log("Neither EFS_FILE_SYSTEM_ID nor EFS_METRIC_LABEL is set - this is expected for testing")
+		t.Log("In production, at least one of these environment variables must be set")
 	}
 }
 
@@ -41,9 +42,12 @@ func TestExecuteSignature(t *testing.T) {
 	// This is a compile-time check that Execute method exists with correct signature
 	// We can't actually execute it without AWS credentials and a real filesystem
 	plugin := EFSEmergencyPlugin{
-		fileSystemId: "fs-test123",
-		region:       "us-east-1",
-		client:       nil, // In a real test, we'd use a mock client
+		fileSystemId:      "fs-test123",
+		metricLabelName:   "file_system_id",
+		region:            "us-east-1",
+		client:            nil, // In a real test, we'd use a mock client
+		prometheusAPI:     nil,
+		prometheusEnabled: false,
 	}
 
 	// We're just checking that this compiles

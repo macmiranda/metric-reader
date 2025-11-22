@@ -80,17 +80,41 @@ For a more permissive policy (not recommended for production):
 
 ## Configuration
 
-### Required Environment Variables
+### Environment Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `EFS_FILE_SYSTEM_ID` | The EFS filesystem ID to manage | `fs-0123456789abcdef0` |
+The plugin supports two methods for determining the EFS filesystem ID:
 
-### Optional Environment Variables
+1. **Static Configuration**: Set `EFS_FILE_SYSTEM_ID` directly
+2. **Dynamic from Metric Labels**: Set `EFS_METRIC_LABEL` to extract the filesystem ID from Prometheus metric labels
 
-| Variable | Description | Default | Example |
-|----------|-------------|---------|---------|
-| `AWS_REGION` | AWS region where the EFS filesystem is located | Auto-detected from AWS config | `us-east-1` |
+At least one of `EFS_FILE_SYSTEM_ID` or `EFS_METRIC_LABEL` must be configured.
+
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `EFS_FILE_SYSTEM_ID` | Conditional* | The EFS filesystem ID to manage (static) | `fs-0123456789abcdef0` |
+| `EFS_METRIC_LABEL` | Conditional* | Name of the Prometheus metric label containing the filesystem ID | `file_system_id` |
+| `AWS_REGION` | No | AWS region where the EFS filesystem is located | `us-east-1` (auto-detected if not set) |
+| `PROMETHEUS_ENDPOINT` | No | Prometheus server URL (required when using `EFS_METRIC_LABEL`) | `http://prometheus:9090` (default) |
+
+\* Either `EFS_FILE_SYSTEM_ID` or `EFS_METRIC_LABEL` must be set. If both are set, `EFS_METRIC_LABEL` takes precedence.
+
+### Dynamic Filesystem ID from Metric Labels
+
+When `EFS_METRIC_LABEL` is configured, the plugin will:
+
+1. Query Prometheus for the metric that triggered the threshold
+2. Extract the specified label from the metric's label set
+3. Use that label's value as the filesystem ID
+
+This is useful when monitoring multiple EFS filesystems with a single metric query, where each metric result includes a label identifying the specific filesystem.
+
+**Example Metric with Labels:**
+```
+aws_efs_burst_credit_balance{file_system_id="fs-0123456789abcdef0",region="us-east-1"} 1500000000
+aws_efs_burst_credit_balance{file_system_id="fs-9876543210fedcba0",region="us-west-2"} 500000000
+```
+
+With `EFS_METRIC_LABEL=file_system_id`, the plugin will extract `fs-0123456789abcdef0` or `fs-9876543210fedcba0` depending on which metric triggered the threshold.
 
 ## Setting Up IRSA on EKS
 
@@ -259,6 +283,73 @@ spec:
         - name: plugins
           mountPath: /plugins
 ```
+
+### Kubernetes Deployment with Dynamic Filesystem ID from Labels
+
+This example shows how to use `EFS_METRIC_LABEL` to dynamically determine the filesystem ID from Prometheus metric labels. This is useful when monitoring multiple filesystems:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metric-reader
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metric-reader
+  template:
+    metadata:
+      labels:
+        app: metric-reader
+    spec:
+      serviceAccountName: metric-reader
+      containers:
+      - name: metric-reader
+        image: metric-reader:latest
+        env:
+        - name: METRIC_NAME
+          value: "aws_efs_burst_credit_balance"
+        # Monitor all filesystems - no LABEL_FILTERS
+        - name: THRESHOLD
+          value: "<1000000000"
+        - name: THRESHOLD_DURATION
+          value: "5m"
+        - name: POLLING_INTERVAL
+          value: "30s"
+        - name: BACKOFF_DELAY
+          value: "1h"
+        - name: ACTION_PLUGIN
+          value: "efs_emergency"
+        - name: PLUGIN_DIR
+          value: "/plugins"
+        # Use metric label instead of static filesystem ID
+        - name: EFS_METRIC_LABEL
+          value: "file_system_id"
+        - name: AWS_REGION
+          value: "us-east-1"
+        - name: PROMETHEUS_ENDPOINT
+          value: "http://prometheus:9090"
+        volumeMounts:
+        - name: plugins
+          mountPath: /plugins
+      volumes:
+      - name: plugins
+        emptyDir: {}
+      initContainers:
+      - name: copy-plugins
+        image: metric-reader:latest
+        command: ['sh', '-c', 'cp /app/plugins/*.so /plugins/']
+        volumeMounts:
+        - name: plugins
+          mountPath: /plugins
+```
+
+In this configuration:
+- The plugin queries Prometheus to get the full metric with all labels
+- It extracts the value of the `file_system_id` label from the metric
+- This allows one deployment to handle multiple EFS filesystems automatically
 
 ## Cost Considerations
 
