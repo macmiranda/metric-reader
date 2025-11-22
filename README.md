@@ -96,7 +96,7 @@ All configuration options can be set via environment variables using uppercase n
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | info |
 | `LEADER_ELECTION_ENABLED` | Whether to enable leader election | true |
 | `LEADER_ELECTION_LOCK_NAME` | Name of the lock to use for leader election | metric-reader-leader |
-| `POD_NAMESPACE` | Kubernetes namespace for leader election | default |
+| `LEADER_ELECTION_LOCK_NAMESPACE` | Kubernetes namespace for leader election lock (uses pod's namespace if not set) | (optional) |
 
 ## Available Plugins
 

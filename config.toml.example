@@ -30,7 +30,8 @@ plugin_dir = ""  # Optional: directory containing plugin .so files
 # Leader election configuration (for Kubernetes deployments)
 leader_election_enabled = true
 leader_election_lock_name = "metric-reader-leader"
-pod_namespace = "default"
+# leader_election_lock_namespace is optional - if not set, uses the pod's namespace
+# leader_election_lock_namespace = "custom-namespace"
 
 # Plugin-specific configuration
 # File Action Plugin
