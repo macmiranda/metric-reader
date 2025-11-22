@@ -72,8 +72,7 @@ e2e-test:
     set -euo pipefail
     echo "Starting e2e test..."
     just build-image || { echo "Failed to build Docker image"; exit 1; }
-    just kind-up || { echo "Failed to create Kind cluster"; exit 1; }
-    just kind-load-image || { echo "Failed to load image"; just kind-down; exit 1; }
+    just kind-up || { echo "Failed to create Kind cluster"; just kind-down; exit 1; }
     just k8s-apply || { echo "Failed to apply Kubernetes resources"; just kind-down; exit 1; }
     just k8s-wait || { echo "Failed waiting for pods to be ready"; just kind-down; exit 1; }
     echo "Running e2e test validation..."
