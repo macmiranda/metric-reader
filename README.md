@@ -58,13 +58,16 @@ The service is configured through environment variables:
 |----------|-------------|---------|
 | `METRIC_NAME` | Name of the Prometheus metric to monitor | (required) |
 | `LABEL_FILTERS` | Label filters to apply to the metric query | (optional) |
-| `THRESHOLD` | Threshold value with operator (e.g., ">100" or "<50") | (required) |
+| `THRESHOLD_OPERATOR` | Threshold operator: `greater_than` or `less_than` | (required with thresholds) |
+| `SOFT_THRESHOLD` | Soft threshold value (float) | (optional) |
+| `HARD_THRESHOLD` | Hard threshold value (float) | (optional) |
+| `SOFT_THRESHOLD_PLUGIN` | Plugin to execute when soft threshold is exceeded | (optional) |
+| `HARD_THRESHOLD_PLUGIN` | Plugin to execute when hard threshold is exceeded | (optional) |
 | `THRESHOLD_DURATION` | How long the threshold must be exceeded before action | 0s |
 | `POLLING_INTERVAL` | How often to check the metric | 1s |
 | `BACKOFF_DELAY` | Delay between actions after threshold is triggered | 0s |
 | `PROMETHEUS_ENDPOINT` | Prometheus server URL | http://prometheus:9090 |
 | `PLUGIN_DIR` | Directory containing plugin .so files | (optional) |
-| `ACTION_PLUGIN` | Name of the plugin to use for actions | (optional) |
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | info |
 | `LEADER_ELECTION_ENABLED` | Whether to enable leader election | true |
 | `LEADER_ELECTION_LOCK_NAME` | Name of the lock to use for leader election | metric-reader-leader |
@@ -106,9 +109,12 @@ docker build -t metric-reader .
 # Run the container
 docker run -d \
   -e METRIC_NAME="your_metric" \
-  -e THRESHOLD=">100" \
+  -e THRESHOLD_OPERATOR="greater_than" \
+  -e SOFT_THRESHOLD="80" \
+  -e HARD_THRESHOLD="100" \
+  -e SOFT_THRESHOLD_PLUGIN="log_action" \
+  -e HARD_THRESHOLD_PLUGIN="file_action" \
   -e THRESHOLD_DURATION="5m" \
-  -e ACTION_PLUGIN="file_action" \
   -e PLUGIN_DIR="/plugins" \
   -v /path/to/plugins:/plugins \
   metric-reader

@@ -8,12 +8,16 @@ services:
     environment:
       - LOG_LEVEL=info
       - METRIC_NAME=up
-      - THRESHOLD=>0
+      - THRESHOLD_OPERATOR=greater_than
+      - SOFT_THRESHOLD=0
+      - SOFT_THRESHOLD_PLUGIN=log_action
+      - HARD_THRESHOLD=0.5
+      - HARD_THRESHOLD_PLUGIN=file_action
       - POLLING_INTERVAL=15s
       - BACKOFF_DELAY=1m0s
       - THRESHOLD_DURATION=30s
       - PROMETHEUS_ENDPOINT=http://prometheus:9090
-      - ACTION_PLUGIN=file_action
+      - PLUGIN_DIR=/app/plugins
       - FILE_ACTION_DIR=/tmp/metric-files
       - FILE_ACTION_SIZE=104857600
     restart: unless-stopped

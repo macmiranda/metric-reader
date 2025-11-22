@@ -17,34 +17,30 @@ import (
 type thresholdOperator string
 
 const (
-	thresholdOperatorGreaterThan thresholdOperator = ">"
-	thresholdOperatorLessThan    thresholdOperator = "<"
+	thresholdOperatorGreaterThan thresholdOperator = "greater_than"
+	thresholdOperatorLessThan    thresholdOperator = "less_than"
 )
 
 type threshold struct {
-	operator thresholdOperator
-	value    float64
+	value  float64
+	plugin ActionPlugin
 }
 
-func parseThreshold(thresholdStr string) (*threshold, error) {
-	if len(thresholdStr) < 2 {
-		return nil, fmt.Errorf("invalid threshold format")
-	}
+type thresholdConfig struct {
+	operator      thresholdOperator
+	softThreshold *threshold
+	hardThreshold *threshold
+}
 
-	operator := thresholdStr[:1]
-	if operator != ">" && operator != "<" {
-		return nil, fmt.Errorf("threshold operator must be > or <")
+func parseThresholdOperator(operatorStr string) (thresholdOperator, error) {
+	switch operatorStr {
+	case "greater_than":
+		return thresholdOperatorGreaterThan, nil
+	case "less_than":
+		return thresholdOperatorLessThan, nil
+	default:
+		return "", fmt.Errorf("threshold operator must be 'greater_than' or 'less_than'")
 	}
-
-	value, err := strconv.ParseFloat(thresholdStr[1:], 64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid threshold value: %v", err)
-	}
-
-	return &threshold{
-		operator: thresholdOperator(operator),
-		value:    value,
-	}, nil
 }
 
 func main() {
@@ -91,14 +87,42 @@ func main() {
 		query = metricName
 	}
 
-	// Get threshold from environment variable
-	thresholdStr := os.Getenv("THRESHOLD")
-	var threshold *threshold
-	if thresholdStr != "" {
-		var err error
-		threshold, err = parseThreshold(thresholdStr)
+	// Get threshold configuration from environment variables
+	var thresholdCfg *thresholdConfig
+	thresholdOperatorStr := os.Getenv("THRESHOLD_OPERATOR")
+	softThresholdStr := os.Getenv("SOFT_THRESHOLD")
+	hardThresholdStr := os.Getenv("HARD_THRESHOLD")
+	
+	if thresholdOperatorStr != "" && (softThresholdStr != "" || hardThresholdStr != "") {
+		operator, err := parseThresholdOperator(thresholdOperatorStr)
 		if err != nil {
-			log.Fatal().Err(err).Msg("invalid THRESHOLD value")
+			log.Fatal().Err(err).Msg("invalid THRESHOLD_OPERATOR value")
+		}
+		
+		thresholdCfg = &thresholdConfig{
+			operator: operator,
+		}
+		
+		// Parse soft threshold if provided
+		if softThresholdStr != "" {
+			softValue, err := strconv.ParseFloat(softThresholdStr, 64)
+			if err != nil {
+				log.Fatal().Err(err).Msg("invalid SOFT_THRESHOLD value")
+			}
+			thresholdCfg.softThreshold = &threshold{
+				value: softValue,
+			}
+		}
+		
+		// Parse hard threshold if provided
+		if hardThresholdStr != "" {
+			hardValue, err := strconv.ParseFloat(hardThresholdStr, 64)
+			if err != nil {
+				log.Fatal().Err(err).Msg("invalid HARD_THRESHOLD value")
+			}
+			thresholdCfg.hardThreshold = &threshold{
+				value: hardValue,
+			}
 		}
 	}
 
@@ -146,26 +170,53 @@ func main() {
 		}
 	}
 
-	// Get action plugin name from environment variable
-	actionPluginName := os.Getenv("ACTION_PLUGIN")
-	var actionPlugin ActionPlugin
-	if actionPluginName != "" {
-		var ok bool
-		actionPlugin, ok = PluginRegistry[actionPluginName]
-		if !ok {
-			log.Fatal().Str("plugin", actionPluginName).Msg("specified action plugin not found")
+	// Assign plugins to thresholds
+	if thresholdCfg != nil {
+		// Get soft threshold plugin
+		softPluginName := os.Getenv("SOFT_THRESHOLD_PLUGIN")
+		if softPluginName != "" && thresholdCfg.softThreshold != nil {
+			plugin, ok := PluginRegistry[softPluginName]
+			if !ok {
+				log.Fatal().Str("plugin", softPluginName).Msg("specified soft threshold plugin not found")
+			}
+			thresholdCfg.softThreshold.plugin = plugin
+		}
+		
+		// Get hard threshold plugin
+		hardPluginName := os.Getenv("HARD_THRESHOLD_PLUGIN")
+		if hardPluginName != "" && thresholdCfg.hardThreshold != nil {
+			plugin, ok := PluginRegistry[hardPluginName]
+			if !ok {
+				log.Fatal().Str("plugin", hardPluginName).Msg("specified hard threshold plugin not found")
+			}
+			thresholdCfg.hardThreshold.plugin = plugin
 		}
 	}
 
-	log.Info().
+	logEvent := log.Info().
 		Str("metric_name", metricName).
 		Str("prometheus_endpoint", prometheusEndpoint).
 		Dur("polling_interval", pollingInterval).
-		Interface("threshold", threshold).
 		Dur("threshold_duration", thresholdDuration).
-		Str("action_plugin", actionPluginName).
-		Str("query", query).
-		Msg("initializing metric reader")
+		Str("query", query)
+	
+	if thresholdCfg != nil {
+		logEvent = logEvent.Str("threshold_operator", string(thresholdCfg.operator))
+		if thresholdCfg.softThreshold != nil {
+			logEvent = logEvent.Float64("soft_threshold", thresholdCfg.softThreshold.value)
+			if thresholdCfg.softThreshold.plugin != nil {
+				logEvent = logEvent.Str("soft_threshold_plugin", thresholdCfg.softThreshold.plugin.Name())
+			}
+		}
+		if thresholdCfg.hardThreshold != nil {
+			logEvent = logEvent.Float64("hard_threshold", thresholdCfg.hardThreshold.value)
+			if thresholdCfg.hardThreshold.plugin != nil {
+				logEvent = logEvent.Str("hard_threshold_plugin", thresholdCfg.hardThreshold.plugin.Name())
+			}
+		}
+	}
+	
+	logEvent.Msg("initializing metric reader")
 
 	// Create Prometheus client
 	client, err := api.NewClient(api.Config{
@@ -184,9 +235,12 @@ func main() {
 		Dur("polling_interval", pollingInterval).
 		Msg("starting metric reader")
 
-	var thresholdStartTime time.Time
-	var thresholdActive bool
-	var backoffUntil time.Time
+	var softThresholdStartTime time.Time
+	var softThresholdActive bool
+	var hardThresholdStartTime time.Time
+	var hardThresholdActive bool
+	var softBackoffUntil time.Time
+	var hardBackoffUntil time.Time
 
 	for range ticker.C {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -216,79 +270,152 @@ func main() {
 				log.Debug().
 					Str("query", query).
 					Float64("value", value).
-					Time("threshold_start_time", thresholdStartTime).
-					Dur("threshold_duration", time.Since(thresholdStartTime)).
-					Time("backoff_until", backoffUntil).
 					Msg("reading metric value")
 
-				// Skip threshold checks if in backoff period
-				if !backoffUntil.IsZero() && time.Now().Before(backoffUntil) {
-					continue
-				}
+				// Process threshold configuration if set
+				if thresholdCfg != nil {
+					// Process soft threshold
+					if thresholdCfg.softThreshold != nil {
+						// Skip check if in backoff period
+						if !softBackoffUntil.IsZero() && time.Now().Before(softBackoffUntil) {
+							log.Debug().
+								Time("soft_backoff_until", softBackoffUntil).
+								Msg("skipping soft threshold check - in backoff period")
+						} else {
+							// Check if soft threshold is crossed
+							softCrossed := false
+							if thresholdCfg.operator == thresholdOperatorGreaterThan && value > thresholdCfg.softThreshold.value {
+								softCrossed = true
+							} else if thresholdCfg.operator == thresholdOperatorLessThan && value < thresholdCfg.softThreshold.value {
+								softCrossed = true
+							}
 
-				// Process threshold if configured
-				if threshold != nil {
-					// Check if threshold is crossed
-					thresholdCrossed := false
-					if threshold.operator == thresholdOperatorGreaterThan && value > threshold.value {
-						thresholdCrossed = true
-					} else if threshold.operator == thresholdOperatorLessThan && value < threshold.value {
-						thresholdCrossed = true
-					}
+							if softCrossed {
+								if !softThresholdActive {
+									// Start monitoring soft threshold duration
+									softThresholdStartTime = time.Now()
+									softThresholdActive = true
+									log.Info().
+										Str("query", query).
+										Float64("value", value).
+										Float64("soft_threshold", thresholdCfg.softThreshold.value).
+										Str("operator", string(thresholdCfg.operator)).
+										Msg("soft threshold crossed")
+								} else if time.Since(softThresholdStartTime) >= thresholdDuration {
+									// Soft threshold exceeded for required duration
+									log.Warn().
+										Str("query", query).
+										Float64("value", value).
+										Float64("soft_threshold", thresholdCfg.softThreshold.value).
+										Dur("duration", time.Since(softThresholdStartTime)).
+										Msg("soft threshold exceeded for specified duration")
 
-					// Handle threshold state
-					if thresholdCrossed {
-						if !thresholdActive {
-							// Start monitoring threshold duration
-							thresholdStartTime = time.Now()
-							thresholdActive = true
-							log.Info().
-								Str("query", query).
-								Float64("value", value).
-								Str("threshold", thresholdStr).
-								Msg("threshold crossed")
-						} else if time.Since(thresholdStartTime) >= thresholdDuration {
-							// Threshold exceeded for required duration
-							log.Warn().
-								Str("query", query).
-								Float64("value", value).
-								Str("threshold", thresholdStr).
-								Dur("duration", time.Since(thresholdStartTime)).
-								Msg("threshold exceeded for specified duration")
-
-							// Execute plugin action if configured and this replica is the current leader
-							if actionPlugin != nil && IsLeader() {
-								if err := actionPlugin.Execute(ctx, metricName, value, thresholdStr, time.Since(thresholdStartTime)); err != nil {
-									log.Error().
-										Err(err).
-										Str("plugin", actionPlugin.Name()).
-										Msg("failed to execute plugin action")
-								} else {
-									// Set backoff period after successful action
-									if backoffDelay > 0 {
-										backoffUntil = time.Now().Add(backoffDelay)
-										// reset threshold start time
-										thresholdStartTime = time.Time{}
-										thresholdActive = false
-										log.Info().
-											Str("query", query).
-											Time("backoff_until", backoffUntil).
-											Msg("entering backoff period after action")
+									// Execute plugin action if configured and this replica is the current leader
+									if thresholdCfg.softThreshold.plugin != nil && IsLeader() {
+										thresholdStr := fmt.Sprintf("%s %.2f", thresholdCfg.operator, thresholdCfg.softThreshold.value)
+										if err := thresholdCfg.softThreshold.plugin.Execute(ctx, metricName, value, thresholdStr, time.Since(softThresholdStartTime)); err != nil {
+											log.Error().
+												Err(err).
+												Str("plugin", thresholdCfg.softThreshold.plugin.Name()).
+												Msg("failed to execute soft threshold plugin action")
+										} else {
+											// Set backoff period after successful action
+											if backoffDelay > 0 {
+												softBackoffUntil = time.Now().Add(backoffDelay)
+												// reset threshold start time
+												softThresholdStartTime = time.Time{}
+												softThresholdActive = false
+												log.Info().
+													Str("query", query).
+													Time("soft_backoff_until", softBackoffUntil).
+													Msg("entering soft threshold backoff period after action")
+											}
+										}
 									}
 								}
+							} else if softThresholdActive {
+								// Soft threshold no longer crossed
+								softThresholdActive = false
+								softThresholdStartTime = time.Time{}
+								log.Info().
+									Str("query", query).
+									Float64("value", value).
+									Float64("soft_threshold", thresholdCfg.softThreshold.value).
+									Msg("soft threshold no longer crossed")
 							}
 						}
-					} else if thresholdActive {
-						// Threshold no longer crossed
-						thresholdActive = false
-						thresholdStartTime = time.Time{}
-						thresholdCrossed = false
-						log.Info().
-							Str("query", query).
-							Float64("value", value).
-							Str("threshold", thresholdStr).
-							Dur("duration", time.Since(thresholdStartTime)).
-							Msg("threshold no longer crossed")
+					}
+
+					// Process hard threshold
+					if thresholdCfg.hardThreshold != nil {
+						// Skip check if in backoff period
+						if !hardBackoffUntil.IsZero() && time.Now().Before(hardBackoffUntil) {
+							log.Debug().
+								Time("hard_backoff_until", hardBackoffUntil).
+								Msg("skipping hard threshold check - in backoff period")
+						} else {
+							// Check if hard threshold is crossed
+							hardCrossed := false
+							if thresholdCfg.operator == thresholdOperatorGreaterThan && value > thresholdCfg.hardThreshold.value {
+								hardCrossed = true
+							} else if thresholdCfg.operator == thresholdOperatorLessThan && value < thresholdCfg.hardThreshold.value {
+								hardCrossed = true
+							}
+
+							if hardCrossed {
+								if !hardThresholdActive {
+									// Start monitoring hard threshold duration
+									hardThresholdStartTime = time.Now()
+									hardThresholdActive = true
+									log.Info().
+										Str("query", query).
+										Float64("value", value).
+										Float64("hard_threshold", thresholdCfg.hardThreshold.value).
+										Str("operator", string(thresholdCfg.operator)).
+										Msg("hard threshold crossed")
+								} else if time.Since(hardThresholdStartTime) >= thresholdDuration {
+									// Hard threshold exceeded for required duration
+									log.Warn().
+										Str("query", query).
+										Float64("value", value).
+										Float64("hard_threshold", thresholdCfg.hardThreshold.value).
+										Dur("duration", time.Since(hardThresholdStartTime)).
+										Msg("hard threshold exceeded for specified duration")
+
+									// Execute plugin action if configured and this replica is the current leader
+									if thresholdCfg.hardThreshold.plugin != nil && IsLeader() {
+										thresholdStr := fmt.Sprintf("%s %.2f", thresholdCfg.operator, thresholdCfg.hardThreshold.value)
+										if err := thresholdCfg.hardThreshold.plugin.Execute(ctx, metricName, value, thresholdStr, time.Since(hardThresholdStartTime)); err != nil {
+											log.Error().
+												Err(err).
+												Str("plugin", thresholdCfg.hardThreshold.plugin.Name()).
+												Msg("failed to execute hard threshold plugin action")
+										} else {
+											// Set backoff period after successful action
+											if backoffDelay > 0 {
+												hardBackoffUntil = time.Now().Add(backoffDelay)
+												// reset threshold start time
+												hardThresholdStartTime = time.Time{}
+												hardThresholdActive = false
+												log.Info().
+													Str("query", query).
+													Time("hard_backoff_until", hardBackoffUntil).
+													Msg("entering hard threshold backoff period after action")
+											}
+										}
+									}
+								}
+							} else if hardThresholdActive {
+								// Hard threshold no longer crossed
+								hardThresholdActive = false
+								hardThresholdStartTime = time.Time{}
+								log.Info().
+									Str("query", query).
+									Float64("value", value).
+									Float64("hard_threshold", thresholdCfg.hardThreshold.value).
+									Msg("hard threshold no longer crossed")
+							}
+						}
 					}
 				}
 			} else {

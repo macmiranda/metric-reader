@@ -35,8 +35,16 @@ spec:
           value: "debug"
         - name: METRIC_NAME
           value: "up"
-        - name: THRESHOLD
-          value: ">0"
+        - name: THRESHOLD_OPERATOR
+          value: "greater_than"
+        - name: SOFT_THRESHOLD
+          value: "0"
+        - name: SOFT_THRESHOLD_PLUGIN
+          value: "log_action"
+        - name: HARD_THRESHOLD
+          value: "0.5"
+        - name: HARD_THRESHOLD_PLUGIN
+          value: "file_action"
         - name: POLLING_INTERVAL
           value: "15s"
         - name: BACKOFF_DELAY
@@ -45,8 +53,8 @@ spec:
           value: "30s"
         - name: PROMETHEUS_ENDPOINT
           value: "http://prometheus:9090"
-        - name: ACTION_PLUGIN
-          value: "file_action"
+        - name: PLUGIN_DIR
+          value: "/app/plugins"
         - name: FILE_ACTION_DIR
           value: "/tmp/metric-files"
         - name: FILE_ACTION_SIZE
