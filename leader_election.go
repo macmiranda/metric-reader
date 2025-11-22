@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -37,13 +38,6 @@ func startLeaderElection(ctx context.Context, config *Config) {
 		return
 	}
 
-	// Leader-election can be opted-out via env var.
-	if !config.LeaderElectionEnabled {
-		leaderActive.Store(true)
-		log.Info().Msg("leader election disabled via LEADER_ELECTION_ENABLED, executing actions on every replica")
-		return
-	}
-
 	hostname, _ := os.Hostname()
 
 	lockName := config.LeaderElectionLockName
@@ -67,7 +61,7 @@ func startLeaderElection(ctx context.Context, config *Config) {
 			log.Warn().Err(err).Msg("unable to detect namespace from service account, skipping leader election")
 			return
 		}
-		namespace = string(namespaceBytes)
+		namespace = strings.TrimSpace(string(namespaceBytes))
 		log.Info().Str("namespace", namespace).Msg("auto-detected namespace from service account")
 	}
 
