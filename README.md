@@ -58,7 +58,26 @@ just clean
 
 ## Configuration
 
-The service is configured through environment variables:
+The service can be configured through either a configuration file or environment variables. Environment variables take precedence over configuration file values.
+
+### Configuration File
+
+Create a `config.toml` file in the current directory or `/etc/metric-reader/` with your configuration. See `config.toml.example` for a complete example.
+
+Example `config.toml`:
+
+```toml
+log_level = "info"
+metric_name = "up"
+threshold = ">0"
+threshold_duration = "30s"
+polling_interval = "15s"
+prometheus_endpoint = "http://prometheus:9090"
+```
+
+### Environment Variables
+
+All configuration options can be set via environment variables using uppercase names:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -77,6 +96,7 @@ The service is configured through environment variables:
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | info |
 | `LEADER_ELECTION_ENABLED` | Whether to enable leader election | true |
 | `LEADER_ELECTION_LOCK_NAME` | Name of the lock to use for leader election | metric-reader-leader |
+| `POD_NAMESPACE` | Kubernetes namespace for leader election | default |
 
 ## Available Plugins
 
