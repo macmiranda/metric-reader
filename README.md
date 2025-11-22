@@ -11,9 +11,35 @@ A program that monitors Prometheus metrics and executes actions when thresholds 
 - Configurable polling interval and backoff periods
 - Leader election mechanism for running multiple replicas at the same time with a single action outcome.
 
-## Quick Start with Just
+## Quick Start
 
-This project uses [Just](https://github.com/casey/just) as a command runner. Install it first, then you can use the following commands:
+This project supports both [Just](https://github.com/casey/just) and Make as command runners.
+
+### Using Make
+
+```bash
+# Build the application
+make build
+
+# Build plugin .so files
+make build-plugins
+
+# Run all tests
+make test
+
+# Build Docker image
+make build-image
+
+# Run end-to-end tests (creates Kind cluster, deploys app, and validates)
+make e2e-test
+
+# Clean up (remove binaries, plugins, and Kind cluster)
+make clean
+```
+
+### Using Just
+
+Alternatively, install [Just](https://github.com/casey/just) and use these commands:
 
 ```bash
 # List all available commands
@@ -83,6 +109,17 @@ Creates a file of configurable size when a metric threshold is exceeded.
 ### Log Action Plugin
 
 Logs threshold events with detailed information about the metric value and duration.
+
+## CI/CD
+
+This project includes automated end-to-end tests that run on every push to any branch (excluding tags):
+
+- **GitHub Actions Workflow**: `.github/workflows/e2e-tests.yml`
+- **Test Environment**: Kind (Kubernetes in Docker) cluster
+- **Timeout**: 5 minutes maximum
+- **Concurrency**: Previous runs are automatically cancelled when a new commit is pushed
+
+The e2e tests validate that the metric-reader can be successfully deployed to a Kubernetes cluster alongside Prometheus and that the application starts correctly.
 
 ## Building
 
