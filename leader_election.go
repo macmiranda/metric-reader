@@ -17,6 +17,12 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	// serviceAccountNamespaceFile is the path to the file containing the namespace
+	// of the service account when running in a Kubernetes pod.
+	serviceAccountNamespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+)
+
 // leaderActive is set to true only in the pod currently holding leadership.
 var leaderActive atomic.Bool
 
@@ -55,7 +61,7 @@ func startLeaderElection(ctx context.Context, config *Config) {
 
 	// If namespace is not set, try to detect it from the service account
 	if namespace == "" {
-		namespaceBytes, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+		namespaceBytes, err := os.ReadFile(serviceAccountNamespaceFile)
 		if err != nil {
 			leaderActive.Store(true)
 			log.Warn().Err(err).Msg("unable to detect namespace from service account, skipping leader election")
