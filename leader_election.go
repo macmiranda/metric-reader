@@ -6,13 +6,14 @@ import (
     "sync/atomic"
     "time"
 
+    "github.com/go-logr/zerologr"
+    "github.com/rs/zerolog/log"
     metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
     "k8s.io/client-go/kubernetes"
     "k8s.io/client-go/rest"
     "k8s.io/client-go/tools/leaderelection"
     "k8s.io/client-go/tools/leaderelection/resourcelock"
-
-    "github.com/rs/zerolog/log"
+    "k8s.io/klog/v2"
 )
 
 // leaderActive is set to true only in the pod currently holding leadership.
@@ -27,6 +28,12 @@ func IsLeader() bool {
 // When leader-election is disabled (LEADER_ELECTION_ENABLED=false) the function
 // simply marks the instance as leader and returns.
 func startLeaderElection(ctx context.Context) {
+    // Configure klog to use zerolog for consistent logging across the application.
+    // This ensures that logs from Kubernetes client-go libraries use the same
+    // structured logging format as the rest of the application.
+    zerologAdapter := zerologr.New(&log.Logger)
+    klog.SetLogger(zerologAdapter)
+
     // Leader-election can be opted-out via env var.
     if v := os.Getenv("LEADER_ELECTION_ENABLED"); v == "false" {
         leaderActive.Store(true)

@@ -48,6 +48,12 @@ just k8s-apply
 
 # Delete metric-reader from Kind cluster
 just k8s-delete
+
+# Run end-to-end tests (creates Kind cluster, deploys app, and validates)
+just e2e-test
+
+# Clean up (remove binaries, plugins, and Kind cluster)
+just clean
 ```
 
 ## Configuration
@@ -99,6 +105,17 @@ Switches an AWS EFS filesystem from bursting throughput mode to elastic throughp
 - IAM permissions: `elasticfilesystem:UpdateFileSystem`, `elasticfilesystem:DescribeFileSystems`
 
 See [plugins/efs_emergency/README.md](plugins/efs_emergency/README.md) for detailed setup instructions, IAM configuration, and IRSA setup on EKS.
+
+## CI/CD
+
+This project includes automated end-to-end tests that run on every push to any branch (excluding tags):
+
+- **GitHub Actions Workflow**: `.github/workflows/e2e-tests.yml`
+- **Test Environment**: Kind (Kubernetes in Docker) cluster
+- **Timeout**: 5 minutes maximum
+- **Concurrency**: Previous runs are automatically cancelled when a new commit is pushed
+
+The e2e tests validate that the metric-reader can be successfully deployed to a Kubernetes cluster alongside Prometheus and that the application starts correctly.
 
 ## Building
 
