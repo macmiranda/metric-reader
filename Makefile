@@ -54,7 +54,7 @@ k8s-logs:
 # Run end-to-end test
 e2e-test:
 	@echo "Starting e2e test..."
-	$(MAKE) build-image
+	$(MAKE) build-image || (echo "Failed to build Docker image"; exit 1)
 	$(MAKE) kind-up || (echo "Failed to create Kind cluster"; exit 1)
 	$(MAKE) kind-load-image || (echo "Failed to load image"; $(MAKE) kind-down; exit 1)
 	$(MAKE) k8s-apply || (echo "Failed to apply Kubernetes resources"; $(MAKE) kind-down; exit 1)
