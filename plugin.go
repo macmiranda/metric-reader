@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"plugin"
 	"strings"
 	"time"
@@ -62,7 +63,7 @@ func LoadPluginsFromDirectory(dir string) error {
 			continue
 		}
 
-		pluginPath := fmt.Sprintf("%s/%s", dir, entry.Name())
+		pluginPath := filepath.Join(dir, entry.Name())
 		plugin, err := LoadPlugin(pluginPath)
 		if err != nil {
 			log.Error().Err(err).Str("plugin", entry.Name()).Msg("failed to load plugin")
@@ -90,7 +91,7 @@ func LoadRequiredPlugins(dir string, requiredPlugins map[string]bool) error {
 			continue
 		}
 
-		pluginPath := fmt.Sprintf("%s/%s", dir, entry.Name())
+		pluginPath := filepath.Join(dir, entry.Name())
 		plugin, err := LoadPlugin(pluginPath)
 		if err != nil {
 			log.Error().Err(err).Str("plugin", entry.Name()).Msg("failed to load plugin")

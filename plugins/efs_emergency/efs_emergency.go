@@ -142,7 +142,7 @@ func (p *EFSEmergencyPlugin) ValidateConfig() error {
 	// but the actual Execute() will handle that gracefully
 	if p.client == nil {
 		log.Warn().
-			Str("plugin", "efs_emergency").
+			Str("plugin", p.Name()).
 			Msg("AWS client not initialized - plugin may fail at execution time if AWS configuration is missing")
 	}
 	

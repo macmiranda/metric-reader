@@ -224,8 +224,9 @@ func TestLoadRequiredPlugins_EmptyRequiredPlugins(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a dummy .so file (won't be loaded since requiredPlugins is empty)
+	// This tests that the function doesn't attempt to load plugins when none are required
 	dummyPlugin := filepath.Join(tmpDir, "dummy.so")
-	if err := os.WriteFile(dummyPlugin, []byte("dummy"), 0644); err != nil {
+	if err := os.WriteFile(dummyPlugin, []byte{}, 0644); err != nil {
 		t.Fatalf("Failed to create dummy plugin file: %v", err)
 	}
 

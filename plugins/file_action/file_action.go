@@ -67,7 +67,7 @@ func (p *FileActionPlugin) ValidateConfig() error {
 	}
 	
 	// Verify the directory exists and is writable
-	if err := os.MkdirAll(p.outputDir, 0755); err != nil {
+	if err := os.MkdirAll(p.outputDir, 0750); err != nil {
 		return fmt.Errorf("cannot create or access FILE_ACTION_DIR '%s': %v", p.outputDir, err)
 	}
 	
