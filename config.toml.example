@@ -12,20 +12,6 @@ label_filters = ""  # Optional: e.g., 'job="prometheus",instance="localhost:9090
 # Threshold configuration
 threshold_operator = "greater_than"  # Options: "greater_than" or "less_than"
 
-# Soft threshold configuration
-[soft]
-threshold = 80.0  # Soft threshold value
-plugin = "log_action"  # Plugin to execute when soft threshold is exceeded
-duration = "30s"  # How long threshold must be exceeded
-backoff_delay = "1m"  # Delay between actions after threshold is triggered
-
-# Hard threshold configuration
-[hard]
-threshold = 100.0  # Hard threshold value
-plugin = "file_action"  # Plugin to execute when hard threshold is exceeded
-duration = "30s"  # How long threshold must be exceeded
-backoff_delay = "1m"  # Delay between actions after threshold is triggered
-
 # Polling configuration
 polling_interval = "15s"  # How often to check the metric
 
@@ -40,6 +26,20 @@ leader_election_enabled = true
 leader_election_lock_name = "metric-reader-leader"
 # leader_election_lock_namespace is optional - if not set, uses the pod's namespace
 # leader_election_lock_namespace = "custom-namespace"
+
+# Soft threshold configuration
+[soft]
+threshold = 80.0  # Soft threshold value
+plugin = "log_action"  # Plugin to execute when soft threshold is exceeded
+duration = "30s"  # How long threshold must be exceeded
+backoff_delay = "1m"  # Delay between actions after threshold is triggered
+
+# Hard threshold configuration
+[hard]
+threshold = 100.0  # Hard threshold value
+plugin = "file_action"  # Plugin to execute when hard threshold is exceeded
+duration = "30s"  # How long threshold must be exceeded
+backoff_delay = "1m"  # Delay between actions after threshold is triggered
 
 # Plugin-specific configuration
 [plugins.file_action]

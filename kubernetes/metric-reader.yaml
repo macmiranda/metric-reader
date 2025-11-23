@@ -19,20 +19,6 @@ data:
     # Threshold configuration
     threshold_operator = "greater_than"
 
-    # Soft threshold configuration
-    [soft]
-    threshold = 0.0
-    plugin = "log_action"
-    duration = "30s"
-    backoff_delay = "1m0s"
-
-    # Hard threshold configuration
-    [hard]
-    threshold = 0.5
-    plugin = "file_action"
-    duration = "30s"
-    backoff_delay = "5m0s"
-
     # Polling configuration
     polling_interval = "15s"
 
@@ -47,6 +33,20 @@ data:
     leader_election_lock_name = "metric-reader-leader"
     # leader_election_lock_namespace is optional - if not set, uses the pod's namespace
     # leader_election_lock_namespace = "custom-namespace"
+
+    # Soft threshold configuration
+    [soft]
+    threshold = 0.0
+    plugin = "log_action"
+    duration = "30s"
+    backoff_delay = "1m0s"
+
+    # Hard threshold configuration
+    [hard]
+    threshold = 0.5
+    plugin = "file_action"
+    duration = "30s"
+    backoff_delay = "5m0s"
 
     # Plugin-specific configuration
     [plugins.file_action]
