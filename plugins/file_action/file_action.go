@@ -84,19 +84,17 @@ func init() {
 		outputDir = "/tmp/metric-files"
 	}
 
-	// Create directory if it doesn't exist
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		log.Fatal().Err(err).Str("dir", outputDir).Msg("failed to create output directory")
-	}
-
 	// Get file size from environment (default to 1MB)
 	fileSize := int64(1024 * 1024) // 1MB default
 	if sizeStr := os.Getenv("FILE_ACTION_SIZE"); sizeStr != "" {
 		size, err := strconv.ParseInt(sizeStr, 10, 64)
 		if err != nil {
-			log.Fatal().Err(err).Str("size", sizeStr).Msg("invalid FILE_ACTION_SIZE value")
+			// Don't fail here - let ValidateConfig() handle validation
+			log.Warn().Err(err).Str("size", sizeStr).Msg("invalid FILE_ACTION_SIZE value, using default")
+			fileSize = int64(1024 * 1024)
+		} else {
+			fileSize = size
 		}
-		fileSize = size
 	}
 
 	Plugin = FileActionPlugin{

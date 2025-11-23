@@ -91,6 +91,15 @@ func LoadRequiredPlugins(dir string, requiredPlugins map[string]bool) error {
 			continue
 		}
 
+		// Extract plugin name from filename (remove .so extension)
+		pluginName := strings.TrimSuffix(entry.Name(), ".so")
+		
+		// Only load the plugin if it's required
+		if !requiredPlugins[pluginName] {
+			log.Debug().Str("plugin", pluginName).Msg("plugin skipped - not required")
+			continue
+		}
+
 		pluginPath := filepath.Join(dir, entry.Name())
 		plugin, err := LoadPlugin(pluginPath)
 		if err != nil {
@@ -98,19 +107,22 @@ func LoadRequiredPlugins(dir string, requiredPlugins map[string]bool) error {
 			continue
 		}
 
-		// Only register and validate if this plugin is required
-		if requiredPlugins[plugin.Name()] {
-			// Validate plugin configuration before registering
-			if err := plugin.ValidateConfig(); err != nil {
-				return fmt.Errorf("plugin '%s' configuration validation failed: %v", plugin.Name(), err)
-			}
-
-			RegisterPlugin(plugin)
-			loadedPlugins[plugin.Name()] = true
-			log.Info().Str("plugin", plugin.Name()).Msg("plugin loaded and validated successfully")
-		} else {
-			log.Debug().Str("plugin", plugin.Name()).Msg("plugin skipped - not required")
+		// Verify the plugin name matches the expected name from filename
+		if plugin.Name() != pluginName {
+			log.Warn().
+				Str("expected", pluginName).
+				Str("actual", plugin.Name()).
+				Msg("plugin name mismatch - plugin filename should match plugin Name() method")
 		}
+
+		// Validate plugin configuration before registering
+		if err := plugin.ValidateConfig(); err != nil {
+			return fmt.Errorf("plugin '%s' configuration validation failed: %v", plugin.Name(), err)
+		}
+
+		RegisterPlugin(plugin)
+		loadedPlugins[plugin.Name()] = true
+		log.Info().Str("plugin", plugin.Name()).Msg("plugin loaded and validated successfully")
 	}
 
 	// Check that all required plugins were found and loaded
