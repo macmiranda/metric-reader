@@ -179,7 +179,7 @@ size = 1048576  # 1MB
 # aws_region = "us-east-1"
 ```
 
-**Note:** The new nested `[soft]` and `[hard]` sections are recommended for threshold configuration. Each section can have its own `threshold`, `plugin`, `duration`, and `backoff_delay` settings. The old flat structure (e.g., `soft_threshold`, `threshold_duration`) is still supported for backward compatibility.
+**Breaking Change (v0.x):** The configuration now requires `[soft]` and `[hard]` sections for threshold configuration. Each section has its own `threshold`, `plugin`, `duration`, and `backoff_delay` settings.
 
 ### Environment Variables
 
@@ -191,15 +191,13 @@ All configuration options can be set via environment variables using uppercase n
 | `LABEL_FILTERS` | Label filters to apply to the metric query | (optional) |
 | `THRESHOLD_OPERATOR` | Threshold operator: `greater_than` or `less_than` | (required with thresholds) |
 | `SOFT_THRESHOLD` | Soft threshold value (float) | (optional) |
-| `SOFT_DURATION` | How long soft threshold must be exceeded before action | (uses THRESHOLD_DURATION if not set) |
-| `SOFT_BACKOFF_DELAY` | Delay between soft threshold actions | (uses BACKOFF_DELAY if not set) |
-| `HARD_THRESHOLD` | Hard threshold value (float) | (optional) |
-| `HARD_DURATION` | How long hard threshold must be exceeded before action | (uses THRESHOLD_DURATION if not set) |
-| `HARD_BACKOFF_DELAY` | Delay between hard threshold actions | (uses BACKOFF_DELAY if not set) |
 | `SOFT_THRESHOLD_PLUGIN` | Plugin to execute when soft threshold is exceeded | (optional) |
+| `SOFT_DURATION` | How long soft threshold must be exceeded before action | (optional) |
+| `SOFT_BACKOFF_DELAY` | Delay between soft threshold actions | (optional) |
+| `HARD_THRESHOLD` | Hard threshold value (float) | (optional) |
 | `HARD_THRESHOLD_PLUGIN` | Plugin to execute when hard threshold is exceeded | (optional) |
-| `THRESHOLD_DURATION` | Default duration for both thresholds (deprecated) | 0s |
-| `BACKOFF_DELAY` | Default backoff delay for both thresholds (deprecated) | 0s |
+| `HARD_DURATION` | How long hard threshold must be exceeded before action | (optional) |
+| `HARD_BACKOFF_DELAY` | Delay between hard threshold actions | (optional) |
 | `POLLING_INTERVAL` | How often to check the metric | 1s |
 | `PROMETHEUS_ENDPOINT` | Prometheus server URL | http://prometheus:9090 |
 | `PLUGIN_DIR` | Directory containing plugin .so files | (optional) |

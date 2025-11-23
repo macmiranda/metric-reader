@@ -469,8 +469,10 @@ func main() {
 
 	// Get threshold configuration from config
 	var thresholdCfg *thresholdConfig
+	var softDuration, hardDuration time.Duration
+	var softBackoffDelay, hardBackoffDelay time.Duration
 
-	if config.ThresholdOperator != "" && (config.SoftThreshold != nil || config.HardThreshold != nil) {
+	if config.ThresholdOperator != "" && (config.Soft != nil || config.Hard != nil) {
 		operator, err := parseThresholdOperator(config.ThresholdOperator)
 		if err != nil {
 			log.Fatal().Err(err).Msg("invalid THRESHOLD_OPERATOR value")
@@ -481,41 +483,22 @@ func main() {
 		}
 
 		// Parse soft threshold if provided
-		if config.SoftThreshold != nil {
+		if config.Soft != nil {
 			thresholdCfg.softThreshold = &threshold{
-				value: *config.SoftThreshold,
+				value: config.Soft.Threshold,
 			}
+			softDuration = config.Soft.Duration
+			softBackoffDelay = config.Soft.BackoffDelay
 		}
 
 		// Parse hard threshold if provided
-		if config.HardThreshold != nil {
+		if config.Hard != nil {
 			thresholdCfg.hardThreshold = &threshold{
-				value: *config.HardThreshold,
+				value: config.Hard.Threshold,
 			}
+			hardDuration = config.Hard.Duration
+			hardBackoffDelay = config.Hard.BackoffDelay
 		}
-	}
-
-	// Get threshold durations and backoff delays from config
-	// Use section-specific values if available, otherwise fall back to legacy shared values
-	var softDuration, hardDuration time.Duration
-	var softBackoffDelay, hardBackoffDelay time.Duration
-	
-	if config.Soft != nil {
-		softDuration = config.Soft.Duration
-		softBackoffDelay = config.Soft.BackoffDelay
-	} else {
-		// Fallback to legacy shared values
-		softDuration = config.ThresholdDuration
-		softBackoffDelay = config.BackoffDelay
-	}
-	
-	if config.Hard != nil {
-		hardDuration = config.Hard.Duration
-		hardBackoffDelay = config.Hard.BackoffDelay
-	} else {
-		// Fallback to legacy shared values
-		hardDuration = config.ThresholdDuration
-		hardBackoffDelay = config.BackoffDelay
 	}
 
 	// Get polling interval from config
@@ -532,11 +515,11 @@ func main() {
 
 	// Determine which plugins are needed
 	requiredPlugins := make(map[string]bool)
-	if config.SoftThresholdPlugin != "" {
-		requiredPlugins[config.SoftThresholdPlugin] = true
+	if config.Soft != nil && config.Soft.Plugin != "" {
+		requiredPlugins[config.Soft.Plugin] = true
 	}
-	if config.HardThresholdPlugin != "" {
-		requiredPlugins[config.HardThresholdPlugin] = true
+	if config.Hard != nil && config.Hard.Plugin != "" {
+		requiredPlugins[config.Hard.Plugin] = true
 	}
 
 	// Get plugin directory from config and load only required plugins
@@ -549,8 +532,12 @@ func main() {
 
 	// Assign plugins to thresholds and validate configuration
 	if thresholdCfg != nil {
-		validateThresholdPlugin(config.SoftThresholdPlugin, thresholdCfg.softThreshold, "SOFT")
-		validateThresholdPlugin(config.HardThresholdPlugin, thresholdCfg.hardThreshold, "HARD")
+		if config.Soft != nil {
+			validateThresholdPlugin(config.Soft.Plugin, thresholdCfg.softThreshold, "SOFT")
+		}
+		if config.Hard != nil {
+			validateThresholdPlugin(config.Hard.Plugin, thresholdCfg.hardThreshold, "HARD")
+		}
 	}
 
 	logEvent := log.Info().

@@ -4,6 +4,8 @@
 
 Metric-reader is a lightweight Go application that monitors Prometheus metrics and executes configurable actions when thresholds are exceeded for a specified duration. It's designed to run as a sidecar container in Kubernetes Pods but can also run as a standalone service.
 
+**Alpha Phase:** This project is in alpha (pre-1.0). Breaking changes are acceptable and backward compatibility is not required. Focus on simplicity and clean design over maintaining old APIs.
+
 ### Key Capabilities
 - Monitor any Prometheus metric with configurable thresholds
 - Execute custom actions via a plugin system
@@ -303,8 +305,6 @@ go test -v ./...                    # Verify changes
 
 ## Threshold Configuration
 
-### New Structure (v2 - Nested Sections)
-
 Use separate `[soft]` and `[hard]` sections in `config.toml` with independent timing:
 
 ```toml
@@ -323,22 +323,9 @@ duration = "30s"
 backoff_delay = "1m"
 ```
 
-Each section: `threshold`, `plugin`, `duration`, `backoff_delay`
+Each section has: `threshold`, `plugin`, `duration`, `backoff_delay`
 
-### Legacy Structure (v1 - Backward Compatible)
-
-```toml
-soft_threshold = 80.0
-hard_threshold = 100.0
-soft_threshold_plugin = "log_action"
-hard_threshold_plugin = "file_action"
-threshold_duration = "30s"  # Shared
-backoff_delay = "1m"        # Shared
-```
-
-Environment variables: `SOFT_THRESHOLD`, `SOFT_DURATION`, `SOFT_BACKOFF_DELAY`, `HARD_THRESHOLD`, `HARD_DURATION`, `HARD_BACKOFF_DELAY`. Legacy: `THRESHOLD_DURATION`, `BACKOFF_DELAY` (deprecated).
-
-Config migration is automatic. Both structures work. New structure allows independent timing per threshold.
+Environment variables: `SOFT_THRESHOLD`, `SOFT_THRESHOLD_PLUGIN`, `SOFT_DURATION`, `SOFT_BACKOFF_DELAY`, `HARD_THRESHOLD`, `HARD_THRESHOLD_PLUGIN`, `HARD_DURATION`, `HARD_BACKOFF_DELAY`
 
 ## Additional Resources
 
