@@ -302,3 +302,293 @@ aws_region = "ap-south-1"
 		t.Errorf("Expected nested plugins.efs_emergency.aws_region 'ap-south-1', got %q", config.Plugins.EFSEmergency.AWSRegion)
 	}
 }
+
+func TestNestedThresholdConfig(t *testing.T) {
+	// Save current working directory
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	// Clear any existing threshold env vars
+	thresholdEnvVars := []string{
+		"SOFT_THRESHOLD", "HARD_THRESHOLD",
+		"SOFT_THRESHOLD_PLUGIN", "HARD_THRESHOLD_PLUGIN",
+		"SOFT_DURATION", "HARD_DURATION",
+		"SOFT_BACKOFF_DELAY", "HARD_BACKOFF_DELAY",
+		"THRESHOLD_DURATION", "BACKOFF_DELAY",
+	}
+	savedEnvs := make(map[string]string)
+	for _, key := range thresholdEnvVars {
+		savedEnvs[key] = os.Getenv(key)
+		os.Unsetenv(key)
+	}
+	defer func() {
+		for key, value := range savedEnvs {
+			if value != "" {
+				os.Setenv(key, value)
+			} else {
+				os.Unsetenv(key)
+			}
+		}
+	}()
+
+	// Create a temporary directory for the test
+	tmpDir := t.TempDir()
+	
+	// Create a config file with new nested threshold structure
+	configContent := `log_level = "debug"
+metric_name = "test_metric"
+threshold_operator = "greater_than"
+
+[soft]
+threshold = 80.0
+plugin = "log_action"
+duration = "30s"
+backoff_delay = "1m"
+
+[hard]
+threshold = 100.0
+plugin = "file_action"
+duration = "45s"
+backoff_delay = "2m"
+`
+	
+	configPath := tmpDir + "/config.toml"
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+	
+	// Change to temp directory so config file is found
+	os.Chdir(tmpDir)
+	
+	// Load config
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+	
+	// Verify soft threshold section
+	if config.Soft == nil {
+		t.Fatal("Expected Soft section to be set, got nil")
+	}
+	if config.Soft.Threshold != 80.0 {
+		t.Errorf("Expected soft.threshold 80.0, got %f", config.Soft.Threshold)
+	}
+	if config.Soft.Plugin != "log_action" {
+		t.Errorf("Expected soft.plugin 'log_action', got %q", config.Soft.Plugin)
+	}
+	if config.Soft.Duration.Seconds() != 30 {
+		t.Errorf("Expected soft.duration 30s, got %v", config.Soft.Duration)
+	}
+	if config.Soft.BackoffDelay.Seconds() != 60 {
+		t.Errorf("Expected soft.backoff_delay 1m, got %v", config.Soft.BackoffDelay)
+	}
+	
+	// Verify hard threshold section
+	if config.Hard == nil {
+		t.Fatal("Expected Hard section to be set, got nil")
+	}
+	if config.Hard.Threshold != 100.0 {
+		t.Errorf("Expected hard.threshold 100.0, got %f", config.Hard.Threshold)
+	}
+	if config.Hard.Plugin != "file_action" {
+		t.Errorf("Expected hard.plugin 'file_action', got %q", config.Hard.Plugin)
+	}
+	if config.Hard.Duration.Seconds() != 45 {
+		t.Errorf("Expected hard.duration 45s, got %v", config.Hard.Duration)
+	}
+	if config.Hard.BackoffDelay.Seconds() != 120 {
+		t.Errorf("Expected hard.backoff_delay 2m, got %v", config.Hard.BackoffDelay)
+	}
+	
+	// Verify backward compatibility - old fields should also be populated
+	if config.SoftThreshold == nil || *config.SoftThreshold != 80.0 {
+		t.Errorf("Expected backward compatible soft_threshold 80.0, got %v", config.SoftThreshold)
+	}
+	if config.HardThreshold == nil || *config.HardThreshold != 100.0 {
+		t.Errorf("Expected backward compatible hard_threshold 100.0, got %v", config.HardThreshold)
+	}
+	if config.SoftThresholdPlugin != "log_action" {
+		t.Errorf("Expected backward compatible soft_threshold_plugin 'log_action', got %q", config.SoftThresholdPlugin)
+	}
+	if config.HardThresholdPlugin != "file_action" {
+		t.Errorf("Expected backward compatible hard_threshold_plugin 'file_action', got %q", config.HardThresholdPlugin)
+	}
+}
+
+func TestLegacyFlatThresholdConfig(t *testing.T) {
+	// Save current working directory
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	// Clear any existing threshold env vars
+	thresholdEnvVars := []string{
+		"SOFT_THRESHOLD", "HARD_THRESHOLD",
+		"SOFT_THRESHOLD_PLUGIN", "HARD_THRESHOLD_PLUGIN",
+		"SOFT_DURATION", "HARD_DURATION",
+		"SOFT_BACKOFF_DELAY", "HARD_BACKOFF_DELAY",
+		"THRESHOLD_DURATION", "BACKOFF_DELAY",
+	}
+	savedEnvs := make(map[string]string)
+	for _, key := range thresholdEnvVars {
+		savedEnvs[key] = os.Getenv(key)
+		os.Unsetenv(key)
+	}
+	defer func() {
+		for key, value := range savedEnvs {
+			if value != "" {
+				os.Setenv(key, value)
+			} else {
+				os.Unsetenv(key)
+			}
+		}
+	}()
+
+	// Create a temporary directory for the test
+	tmpDir := t.TempDir()
+	
+	// Create a config file with legacy flat threshold structure
+	configContent := `log_level = "debug"
+metric_name = "test_metric"
+threshold_operator = "greater_than"
+
+# Legacy flat structure
+soft_threshold = 70.0
+hard_threshold = 90.0
+soft_threshold_plugin = "log_action"
+hard_threshold_plugin = "file_action"
+threshold_duration = "20s"
+backoff_delay = "30s"
+`
+	
+	configPath := tmpDir + "/config.toml"
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+	
+	// Change to temp directory so config file is found
+	os.Chdir(tmpDir)
+	
+	// Load config
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+	
+	// Verify legacy fields still work
+	if config.SoftThreshold == nil || *config.SoftThreshold != 70.0 {
+		t.Errorf("Expected soft_threshold 70.0, got %v", config.SoftThreshold)
+	}
+	if config.HardThreshold == nil || *config.HardThreshold != 90.0 {
+		t.Errorf("Expected hard_threshold 90.0, got %v", config.HardThreshold)
+	}
+	if config.SoftThresholdPlugin != "log_action" {
+		t.Errorf("Expected soft_threshold_plugin 'log_action', got %q", config.SoftThresholdPlugin)
+	}
+	if config.HardThresholdPlugin != "file_action" {
+		t.Errorf("Expected hard_threshold_plugin 'file_action', got %q", config.HardThresholdPlugin)
+	}
+	if config.ThresholdDuration.Seconds() != 20 {
+		t.Errorf("Expected threshold_duration 20s, got %v", config.ThresholdDuration)
+	}
+	if config.BackoffDelay.Seconds() != 30 {
+		t.Errorf("Expected backoff_delay 30s, got %v", config.BackoffDelay)
+	}
+	
+	// Verify new nested structure also gets populated
+	if config.Soft == nil {
+		t.Fatal("Expected Soft section to be populated from legacy config, got nil")
+	}
+	if config.Soft.Threshold != 70.0 {
+		t.Errorf("Expected soft.threshold 70.0 from migration, got %f", config.Soft.Threshold)
+	}
+	if config.Soft.Plugin != "log_action" {
+		t.Errorf("Expected soft.plugin 'log_action' from migration, got %q", config.Soft.Plugin)
+	}
+	if config.Soft.Duration.Seconds() != 20 {
+		t.Errorf("Expected soft.duration 20s from migration, got %v", config.Soft.Duration)
+	}
+	if config.Soft.BackoffDelay.Seconds() != 30 {
+		t.Errorf("Expected soft.backoff_delay 30s from migration, got %v", config.Soft.BackoffDelay)
+	}
+	
+	if config.Hard == nil {
+		t.Fatal("Expected Hard section to be populated from legacy config, got nil")
+	}
+	if config.Hard.Threshold != 90.0 {
+		t.Errorf("Expected hard.threshold 90.0 from migration, got %f", config.Hard.Threshold)
+	}
+	if config.Hard.Plugin != "file_action" {
+		t.Errorf("Expected hard.plugin 'file_action' from migration, got %q", config.Hard.Plugin)
+	}
+	if config.Hard.Duration.Seconds() != 20 {
+		t.Errorf("Expected hard.duration 20s from migration, got %v", config.Hard.Duration)
+	}
+	if config.Hard.BackoffDelay.Seconds() != 30 {
+		t.Errorf("Expected hard.backoff_delay 30s from migration, got %v", config.Hard.BackoffDelay)
+	}
+}
+
+func TestEnvironmentVariableThresholdConfig(t *testing.T) {
+	// Save current working directory
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	// Save original env vars and set test values
+	thresholdEnvVars := map[string]string{
+		"SOFT_THRESHOLD":      "85.5",
+		"SOFT_DURATION":       "35s",
+		"SOFT_BACKOFF_DELAY":  "90s",
+		"HARD_THRESHOLD":      "95.5",
+		"HARD_DURATION":       "40s",
+		"HARD_BACKOFF_DELAY":  "120s",
+		"THRESHOLD_OPERATOR":  "less_than",
+	}
+	savedEnvs := make(map[string]string)
+	for key := range thresholdEnvVars {
+		savedEnvs[key] = os.Getenv(key)
+	}
+	defer func() {
+		for key, value := range savedEnvs {
+			if value != "" {
+				os.Setenv(key, value)
+			} else {
+				os.Unsetenv(key)
+			}
+		}
+	}()
+	
+	// Set test env vars
+	for key, value := range thresholdEnvVars {
+		os.Setenv(key, value)
+	}
+
+	// Create a temporary directory without a config file
+	tmpDir := t.TempDir()
+	os.Chdir(tmpDir)
+	
+	// Load config (should use env vars)
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+	
+	// Verify threshold values from environment
+	if config.SoftThreshold == nil || *config.SoftThreshold != 85.5 {
+		t.Errorf("Expected soft_threshold 85.5 from env, got %v", config.SoftThreshold)
+	}
+	if config.HardThreshold == nil || *config.HardThreshold != 95.5 {
+		t.Errorf("Expected hard_threshold 95.5 from env, got %v", config.HardThreshold)
+	}
+	if config.ThresholdOperator != "less_than" {
+		t.Errorf("Expected threshold_operator 'less_than' from env, got %q", config.ThresholdOperator)
+	}
+}

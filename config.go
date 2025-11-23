@@ -25,6 +25,14 @@ type PluginConfig struct {
 	} `mapstructure:"efs_emergency"`
 }
 
+// ThresholdSection holds configuration for a single threshold (soft or hard)
+type ThresholdSection struct {
+	Threshold    float64       `mapstructure:"threshold"`
+	Plugin       string        `mapstructure:"plugin"`
+	Duration     time.Duration `mapstructure:"duration"`
+	BackoffDelay time.Duration `mapstructure:"backoff_delay"`
+}
+
 // Config holds all configuration for the application
 type Config struct {
 	// Logging
@@ -34,8 +42,12 @@ type Config struct {
 	MetricName   string `mapstructure:"metric_name"`
 	LabelFilters string `mapstructure:"label_filters"`
 
-	// Threshold configuration
-	ThresholdOperator   string        `mapstructure:"threshold_operator"`
+	// Threshold configuration (new nested structure)
+	ThresholdOperator string            `mapstructure:"threshold_operator"`
+	Soft              *ThresholdSection `mapstructure:"soft"`
+	Hard              *ThresholdSection `mapstructure:"hard"`
+
+	// Deprecated: Flat threshold configuration (backward compatibility)
 	SoftThreshold       *float64      `mapstructure:"soft_threshold"`
 	HardThreshold       *float64      `mapstructure:"hard_threshold"`
 	SoftThresholdPlugin string        `mapstructure:"soft_threshold_plugin"`
@@ -161,12 +173,26 @@ func LoadConfig() (*Config, error) {
 	v.BindEnv("metric_name", "METRIC_NAME")
 	v.BindEnv("label_filters", "LABEL_FILTERS")
 	v.BindEnv("threshold_operator", "THRESHOLD_OPERATOR")
+	
+	// New nested structure for soft/hard thresholds
+	v.BindEnv("soft.threshold", "SOFT_THRESHOLD")
+	v.BindEnv("soft.plugin", "SOFT_THRESHOLD_PLUGIN")
+	v.BindEnv("soft.duration", "SOFT_DURATION")
+	v.BindEnv("soft.backoff_delay", "SOFT_BACKOFF_DELAY")
+	
+	v.BindEnv("hard.threshold", "HARD_THRESHOLD")
+	v.BindEnv("hard.plugin", "HARD_THRESHOLD_PLUGIN")
+	v.BindEnv("hard.duration", "HARD_DURATION")
+	v.BindEnv("hard.backoff_delay", "HARD_BACKOFF_DELAY")
+	
+	// Old flat structure (backward compatibility)
 	v.BindEnv("soft_threshold", "SOFT_THRESHOLD")
 	v.BindEnv("hard_threshold", "HARD_THRESHOLD")
 	v.BindEnv("soft_threshold_plugin", "SOFT_THRESHOLD_PLUGIN")
 	v.BindEnv("hard_threshold_plugin", "HARD_THRESHOLD_PLUGIN")
 	v.BindEnv("threshold_duration", "THRESHOLD_DURATION")
 	v.BindEnv("backoff_delay", "BACKOFF_DELAY")
+	
 	v.BindEnv("polling_interval", "POLLING_INTERVAL")
 	v.BindEnv("prometheus_endpoint", "PROMETHEUS_ENDPOINT")
 	v.BindEnv("plugin_dir", "PLUGIN_DIR")
@@ -210,6 +236,63 @@ func LoadConfig() (*Config, error) {
 	syncStringField(&config.Plugins.EFSEmergency.FileSystemID, &config.EFSFileSystemID)
 	syncStringField(&config.Plugins.EFSEmergency.FileSystemPrometheusLabel, &config.EFSFileSystemPrometheusLabel)
 	syncStringField(&config.Plugins.EFSEmergency.AWSRegion, &config.AWSRegion)
+
+	// Handle backward compatibility for threshold configuration
+	// If new soft section is not set but old fields are, migrate them
+	if config.Soft == nil && (config.SoftThreshold != nil || config.SoftThresholdPlugin != "" || 
+		config.ThresholdDuration > 0 || config.BackoffDelay > 0) {
+		config.Soft = &ThresholdSection{}
+		if config.SoftThreshold != nil {
+			config.Soft.Threshold = *config.SoftThreshold
+		}
+		config.Soft.Plugin = config.SoftThresholdPlugin
+		config.Soft.Duration = config.ThresholdDuration
+		config.Soft.BackoffDelay = config.BackoffDelay
+	}
+	
+	// If new hard section is not set but old fields are, migrate them
+	if config.Hard == nil && (config.HardThreshold != nil || config.HardThresholdPlugin != "" ||
+		config.ThresholdDuration > 0 || config.BackoffDelay > 0) {
+		config.Hard = &ThresholdSection{}
+		if config.HardThreshold != nil {
+			config.Hard.Threshold = *config.HardThreshold
+		}
+		config.Hard.Plugin = config.HardThresholdPlugin
+		config.Hard.Duration = config.ThresholdDuration
+		config.Hard.BackoffDelay = config.BackoffDelay
+	}
+	
+	// Sync back to old fields for backward compatibility in code
+	if config.Soft != nil {
+		if config.SoftThreshold == nil {
+			config.SoftThreshold = &config.Soft.Threshold
+		}
+		if config.SoftThresholdPlugin == "" {
+			config.SoftThresholdPlugin = config.Soft.Plugin
+		}
+		// Don't override duration/backoff if old fields already set
+		if config.ThresholdDuration == 0 {
+			config.ThresholdDuration = config.Soft.Duration
+		}
+		if config.BackoffDelay == 0 {
+			config.BackoffDelay = config.Soft.BackoffDelay
+		}
+	}
+	
+	if config.Hard != nil {
+		if config.HardThreshold == nil {
+			config.HardThreshold = &config.Hard.Threshold
+		}
+		if config.HardThresholdPlugin == "" {
+			config.HardThresholdPlugin = config.Hard.Plugin
+		}
+		// Duration and backoff delay are shared across soft/hard in new structure
+		// but each section can override them if needed
+		if config.Hard.Duration > 0 {
+			// Hard has its own duration, use it
+			// Note: we'll need to handle this in main.go
+		}
+	}
 
 	return &config, nil
 }

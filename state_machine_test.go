@@ -52,7 +52,7 @@ func TestStateTransition_NotBreached_To_SoftActive(t *testing.T) {
 	}
 	
 	// First call: value exceeds threshold but duration not yet met
-	processThresholdStateMachine(state, thresholdCfg, 90.0, 5*time.Second, 0, "test_metric", "test_query")
+	processThresholdStateMachine(state, thresholdCfg, 90.0, 5*time.Second, 0, 5*time.Second, 0, "test_metric", "test_query")
 	
 	if state.currentState != stateNotBreached {
 		t.Errorf("Expected state to remain NotBreached, got %s", state.currentState)
@@ -70,7 +70,7 @@ func TestStateTransition_NotBreached_To_SoftActive(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	state.softThresholdStartTime = time.Now().Add(-6 * time.Second) // Simulate 6 seconds passed
 	
-	processThresholdStateMachine(state, thresholdCfg, 90.0, 5*time.Second, 0, "test_metric", "test_query")
+	processThresholdStateMachine(state, thresholdCfg, 90.0, 5*time.Second, 0, 5*time.Second, 0, "test_metric", "test_query")
 	
 	if state.currentState != stateSoftThresholdActive {
 		t.Errorf("Expected state to transition to SoftThresholdActive, got %s", state.currentState)
@@ -103,7 +103,7 @@ func TestStateTransition_SoftActive_To_NotBreached(t *testing.T) {
 	}
 	
 	// Value no longer exceeds threshold
-	processThresholdStateMachine(state, thresholdCfg, 70.0, 5*time.Second, 0, "test_metric", "test_query")
+	processThresholdStateMachine(state, thresholdCfg, 70.0, 5*time.Second, 0, 5*time.Second, 0, "test_metric", "test_query")
 	
 	if state.currentState != stateNotBreached {
 		t.Errorf("Expected state to transition to NotBreached, got %s", state.currentState)
@@ -141,7 +141,7 @@ func TestStateTransition_SoftActive_To_HardActive(t *testing.T) {
 	}
 	
 	// First call: value exceeds hard threshold but duration not yet met
-	processThresholdStateMachine(state, thresholdCfg, 110.0, 5*time.Second, 0, "test_metric", "test_query")
+	processThresholdStateMachine(state, thresholdCfg, 110.0, 5*time.Second, 0, 5*time.Second, 0, "test_metric", "test_query")
 	
 	if state.currentState != stateSoftThresholdActive {
 		t.Errorf("Expected state to remain SoftThresholdActive, got %s", state.currentState)
@@ -158,7 +158,7 @@ func TestStateTransition_SoftActive_To_HardActive(t *testing.T) {
 	// Wait and call again to exceed duration
 	state.hardThresholdStartTime = time.Now().Add(-6 * time.Second) // Simulate 6 seconds passed
 	
-	processThresholdStateMachine(state, thresholdCfg, 110.0, 5*time.Second, 0, "test_metric", "test_query")
+	processThresholdStateMachine(state, thresholdCfg, 110.0, 5*time.Second, 0, 5*time.Second, 0, "test_metric", "test_query")
 	
 	if state.currentState != stateHardThresholdActive {
 		t.Errorf("Expected state to transition to HardThresholdActive, got %s", state.currentState)
@@ -197,7 +197,7 @@ func TestStateTransition_HardActive_To_NotBreached(t *testing.T) {
 	}
 	
 	// Value no longer exceeds either threshold
-	processThresholdStateMachine(state, thresholdCfg, 70.0, 5*time.Second, 0, "test_metric", "test_query")
+	processThresholdStateMachine(state, thresholdCfg, 70.0, 5*time.Second, 0, 5*time.Second, 0, "test_metric", "test_query")
 	
 	if state.currentState != stateNotBreached {
 		t.Errorf("Expected state to transition to NotBreached, got %s", state.currentState)
@@ -230,7 +230,7 @@ func TestBackoffPeriod_SoftThreshold(t *testing.T) {
 	}
 	
 	// Try to trigger threshold during backoff
-	processThresholdStateMachine(state, thresholdCfg, 90.0, 0, 0, "test_metric", "test_query")
+	processThresholdStateMachine(state, thresholdCfg, 90.0, 0, 0, 0, 0, "test_metric", "test_query")
 	
 	if state.currentState != stateNotBreached {
 		t.Errorf("Expected state to remain NotBreached during backoff, got %s", state.currentState)
@@ -264,7 +264,7 @@ func TestBackoffPeriod_Expiry(t *testing.T) {
 	}
 	
 	// Trigger with value still exceeding threshold after backoff expires
-	processThresholdStateMachine(state, thresholdCfg, 90.0, 5*time.Second, 10*time.Second, "test_metric", "test_query")
+	processThresholdStateMachine(state, thresholdCfg, 90.0, 5*time.Second, 10*time.Second, 5*time.Second, 10*time.Second, "test_metric", "test_query")
 	
 	if state.currentState != stateSoftThresholdActive {
 		t.Errorf("Expected state to remain SoftThresholdActive, got %s", state.currentState)
@@ -297,7 +297,7 @@ func TestLessThanOperator(t *testing.T) {
 	
 	// Value below threshold should trigger
 	state.softThresholdStartTime = time.Now().Add(-6 * time.Second) // Simulate time passed
-	processThresholdStateMachine(state, thresholdCfg, 10.0, 5*time.Second, 0, "test_metric", "test_query")
+	processThresholdStateMachine(state, thresholdCfg, 10.0, 5*time.Second, 0, 5*time.Second, 0, "test_metric", "test_query")
 	
 	if state.currentState != stateSoftThresholdActive {
 		t.Errorf("Expected state to transition to SoftThresholdActive with less_than operator, got %s", state.currentState)
@@ -327,7 +327,7 @@ func TestHardThresholdOnly(t *testing.T) {
 	// With only hard threshold configured, system should stay in NotBreached
 	// According to the state machine, we need to be in SoftThresholdActive to transition to HardThresholdActive
 	// Without soft threshold, we can never enter SoftThresholdActive, so hard threshold is unreachable
-	processThresholdStateMachine(state, thresholdCfg, 110.0, 5*time.Second, 0, "test_metric", "test_query")
+	processThresholdStateMachine(state, thresholdCfg, 110.0, 5*time.Second, 0, 5*time.Second, 0, "test_metric", "test_query")
 	
 	// State should remain NotBreached since we can't go directly to HardThresholdActive
 	if state.currentState != stateNotBreached {
@@ -357,7 +357,7 @@ func TestSoftThresholdOnly(t *testing.T) {
 	
 	// Should transition to SoftThresholdActive
 	state.softThresholdStartTime = time.Now().Add(-6 * time.Second)
-	processThresholdStateMachine(state, thresholdCfg, 90.0, 5*time.Second, 0, "test_metric", "test_query")
+	processThresholdStateMachine(state, thresholdCfg, 90.0, 5*time.Second, 0, 5*time.Second, 0, "test_metric", "test_query")
 	
 	if state.currentState != stateSoftThresholdActive {
 		t.Errorf("Expected state to transition to SoftThresholdActive, got %s", state.currentState)
