@@ -152,13 +152,22 @@ Example `config.toml`:
 log_level = "info"
 metric_name = "up"
 threshold_operator = "greater_than"
-soft_threshold = 80.0
-hard_threshold = 100.0
-soft_threshold_plugin = "log_action"
-hard_threshold_plugin = "file_action"
-threshold_duration = "30s"
 polling_interval = "15s"
 prometheus_endpoint = "http://prometheus:9090"
+
+# Soft threshold configuration (new recommended structure)
+[soft]
+threshold = 80.0
+plugin = "log_action"
+duration = "30s"
+backoff_delay = "1m"
+
+# Hard threshold configuration (new recommended structure)
+[hard]
+threshold = 100.0
+plugin = "file_action"
+duration = "30s"
+backoff_delay = "1m"
 
 # Plugin-specific configuration in separate sections
 [plugins.file_action]
@@ -170,7 +179,7 @@ size = 1048576  # 1MB
 # aws_region = "us-east-1"
 ```
 
-**Note:** The new nested `[plugins.<plugin_name>]` sections are recommended for better organization. The old flat structure (e.g., `file_action_dir`) is still supported for backward compatibility.
+**Note:** The new nested `[soft]` and `[hard]` sections are recommended for threshold configuration. Each section can have its own `threshold`, `plugin`, `duration`, and `backoff_delay` settings. The old flat structure (e.g., `soft_threshold`, `threshold_duration`) is still supported for backward compatibility.
 
 ### Environment Variables
 
@@ -182,12 +191,16 @@ All configuration options can be set via environment variables using uppercase n
 | `LABEL_FILTERS` | Label filters to apply to the metric query | (optional) |
 | `THRESHOLD_OPERATOR` | Threshold operator: `greater_than` or `less_than` | (required with thresholds) |
 | `SOFT_THRESHOLD` | Soft threshold value (float) | (optional) |
+| `SOFT_DURATION` | How long soft threshold must be exceeded before action | (uses THRESHOLD_DURATION if not set) |
+| `SOFT_BACKOFF_DELAY` | Delay between soft threshold actions | (uses BACKOFF_DELAY if not set) |
 | `HARD_THRESHOLD` | Hard threshold value (float) | (optional) |
+| `HARD_DURATION` | How long hard threshold must be exceeded before action | (uses THRESHOLD_DURATION if not set) |
+| `HARD_BACKOFF_DELAY` | Delay between hard threshold actions | (uses BACKOFF_DELAY if not set) |
 | `SOFT_THRESHOLD_PLUGIN` | Plugin to execute when soft threshold is exceeded | (optional) |
 | `HARD_THRESHOLD_PLUGIN` | Plugin to execute when hard threshold is exceeded | (optional) |
-| `THRESHOLD_DURATION` | How long the threshold must be exceeded before action | 0s |
+| `THRESHOLD_DURATION` | Default duration for both thresholds (deprecated) | 0s |
+| `BACKOFF_DELAY` | Default backoff delay for both thresholds (deprecated) | 0s |
 | `POLLING_INTERVAL` | How often to check the metric | 1s |
-| `BACKOFF_DELAY` | Delay between actions after threshold is triggered | 0s |
 | `PROMETHEUS_ENDPOINT` | Prometheus server URL | http://prometheus:9090 |
 | `PLUGIN_DIR` | Directory containing plugin .so files | (optional) |
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | info |
