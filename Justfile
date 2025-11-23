@@ -35,7 +35,7 @@ compose-down:
 # Create and configure Kind cluster
 kind-up:
     kind create cluster --name metric-reader --config kubernetes/kind-config.yaml
-    kind load docker-image metric-reader:latest --name metric-reader
+    just kind-load-image
 
 # Delete Kind cluster
 kind-down:
