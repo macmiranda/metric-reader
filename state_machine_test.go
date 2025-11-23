@@ -324,9 +324,9 @@ func TestHardThresholdOnly(t *testing.T) {
 		},
 	}
 	
-	// With only hard threshold, system should stay in NotBreached
-	// (according to state machine, we need soft to transition to hard)
-	state.hardThresholdStartTime = time.Now().Add(-6 * time.Second)
+	// With only hard threshold configured, system should stay in NotBreached
+	// According to the state machine, we need to be in SoftThresholdActive to transition to HardThresholdActive
+	// Without soft threshold, we can never enter SoftThresholdActive, so hard threshold is unreachable
 	processThresholdStateMachine(state, thresholdCfg, 110.0, 5*time.Second, 0, "test_metric", "test_query")
 	
 	// State should remain NotBreached since we can't go directly to HardThresholdActive

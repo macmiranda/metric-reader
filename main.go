@@ -357,7 +357,8 @@ func processThresholdStateMachine(
 			return
 		}
 		
-		// If soft threshold is no longer crossed but hard is, also return to NotBreached
+		// If soft threshold is no longer crossed, return to NotBreached
+		// (hard threshold requires soft to be active first per the state machine)
 		if !softCrossed {
 			oldState := state.currentState
 			state.currentState = stateNotBreached
