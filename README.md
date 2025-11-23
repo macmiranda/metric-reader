@@ -13,6 +13,86 @@ A program that monitors Prometheus metrics and executes actions when thresholds 
 - Leader election mechanism for running multiple replicas at the same time with a single action outcome
 - Fail-fast configuration validation at startup
 
+## Threshold State Machine
+
+The metric reader implements a state machine to manage soft and hard threshold transitions. This ensures that thresholds are activated in the correct order and that plugins are executed at the appropriate times.
+
+### States
+
+The state machine has three states:
+
+- **`NotBreached`**: Initial state. The metric value has not exceeded any configured thresholds for the required duration.
+- **`SoftThresholdActive`**: The metric has exceeded the soft threshold for the configured duration. The soft threshold plugin has been executed.
+- **`HardThresholdActive`**: The metric has exceeded the hard threshold for the configured duration while in the `SoftThresholdActive` state. The hard threshold plugin has been executed.
+
+### State Transitions
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    
+    [*] --> NotBreached : Start
+    
+    NotBreached --> SoftThresholdActive : Soft duration crossed
+    NotBreached --> NotBreached : Continue polling
+
+    SoftThresholdActive --> NotBreached : Threshold not crossed
+    SoftThresholdActive --> HardThresholdActive : Hard threshold duration crossed
+    SoftThresholdActive --> SoftThresholdActive : Backoff period past
+
+    HardThresholdActive --> NotBreached : Threshold not crossed
+    HardThresholdActive --> HardThresholdActive : Backoff period past
+```
+
+### Transition Details
+
+1. **`NotBreached` → `SoftThresholdActive`**
+   - Triggered when the metric value crosses the soft threshold and remains crossed for the configured `THRESHOLD_DURATION`
+   - The soft threshold plugin is executed upon entering this state
+   - If a `BACKOFF_DELAY` is configured, the plugin won't execute again until the backoff period expires
+
+2. **`SoftThresholdActive` → `NotBreached`**
+   - Triggered when the metric value drops below the soft threshold
+   - State timers are reset
+   - System returns to monitoring mode
+
+3. **`SoftThresholdActive` → `HardThresholdActive`**
+   - Triggered when the metric value crosses the hard threshold and remains crossed for the configured `THRESHOLD_DURATION` while already in `SoftThresholdActive` state
+   - The hard threshold plugin is executed upon entering this state
+   - **Note**: You cannot transition directly from `NotBreached` to `HardThresholdActive`; you must first enter `SoftThresholdActive`
+
+4. **`SoftThresholdActive` → `SoftThresholdActive`** (re-execution)
+   - Occurs when the backoff period expires and the threshold is still crossed
+   - The soft threshold plugin is executed again
+   - A new backoff period begins
+
+5. **`HardThresholdActive` → `NotBreached`**
+   - Triggered when the metric value drops below the soft threshold (or both thresholds)
+   - State timers are reset
+   - System returns to monitoring mode
+
+6. **`HardThresholdActive` → `HardThresholdActive`** (re-execution)
+   - Occurs when the backoff period expires and the threshold is still crossed
+   - The hard threshold plugin is executed again
+   - A new backoff period begins
+
+### Debug Logging
+
+To see detailed state machine transitions and plugin executions, set `LOG_LEVEL=debug`. This will log:
+
+- Current state and threshold crossing status
+- State transitions with previous and new state names
+- Plugin execution start and completion
+- Duration timers and backoff periods
+
+Example debug output:
+```json
+{"level":"debug","current_state":"NotBreached","soft_crossed":true,"hard_crossed":false,"value":90,"message":"evaluating threshold state machine"}
+{"level":"info","previous_state":"NotBreached","new_state":"SoftThresholdActive","value":90,"soft_threshold":80,"message":"state transition: entering soft threshold active state"}
+{"level":"debug","plugin":"log_action","state":"SoftThresholdActive","message":"executing soft threshold plugin"}
+{"level":"info","plugin":"log_action","state":"SoftThresholdActive","message":"soft threshold plugin executed successfully"}
+```
+
 ## Quick Start with Just
 
 This project uses [Just](https://github.com/casey/just) as a command runner. Install it first, then you can use the following commands:
