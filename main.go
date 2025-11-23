@@ -121,29 +121,26 @@ func processThresholdStateMachine(
 	query string,
 ) {
 	now := time.Now()
-
-	// Check if thresholds are crossed
+	
+	// Only check thresholds relevant to the current state to avoid unnecessary processing
+	// This ensures we only process viable state transitions
 	softCrossed := false
 	hardCrossed := false
-
-	if thresholdCfg.softThreshold != nil {
-		softCrossed = isThresholdCrossed(thresholdCfg.operator, value, thresholdCfg.softThreshold.value)
-	}
-
-	if thresholdCfg.hardThreshold != nil {
-		hardCrossed = isThresholdCrossed(thresholdCfg.operator, value, thresholdCfg.hardThreshold.value)
-	}
-
-	log.Debug().
-		Str("current_state", string(state.currentState)).
-		Bool("soft_crossed", softCrossed).
-		Bool("hard_crossed", hardCrossed).
-		Float64("value", value).
-		Msg("evaluating threshold state machine")
-
+	
 	// State machine transitions
 	switch state.currentState {
 	case stateNotBreached:
+		// In NotBreached state, only check soft threshold
+		if thresholdCfg.softThreshold != nil {
+			softCrossed = isThresholdCrossed(thresholdCfg.operator, value, thresholdCfg.softThreshold.value)
+		}
+		
+		log.Debug().
+			Str("current_state", string(state.currentState)).
+			Bool("soft_crossed", softCrossed).
+			Float64("value", value).
+			Msg("evaluating threshold state machine")
+		
 		// Transition: NotBreached -> SoftThresholdActive (when soft threshold crossed for duration)
 		if softCrossed && thresholdCfg.softThreshold != nil {
 			// Check if we're in backoff period
@@ -217,6 +214,21 @@ func processThresholdStateMachine(
 		}
 
 	case stateSoftThresholdActive:
+		// In SoftThresholdActive state, check both soft (to detect return to normal) and hard thresholds
+		if thresholdCfg.softThreshold != nil {
+			softCrossed = isThresholdCrossed(thresholdCfg.operator, value, thresholdCfg.softThreshold.value)
+		}
+		if thresholdCfg.hardThreshold != nil {
+			hardCrossed = isThresholdCrossed(thresholdCfg.operator, value, thresholdCfg.hardThreshold.value)
+		}
+		
+		log.Debug().
+			Str("current_state", string(state.currentState)).
+			Bool("soft_crossed", softCrossed).
+			Bool("hard_crossed", hardCrossed).
+			Float64("value", value).
+			Msg("evaluating threshold state machine")
+		
 		// Transition: SoftThresholdActive -> NotBreached (when threshold no longer crossed)
 		if !softCrossed {
 			oldState := state.currentState
@@ -344,6 +356,22 @@ func processThresholdStateMachine(
 		}
 
 	case stateHardThresholdActive:
+		// In HardThresholdActive state, check both soft and hard thresholds
+		// Soft is checked to detect return to NotBreached, hard is checked for re-execution
+		if thresholdCfg.softThreshold != nil {
+			softCrossed = isThresholdCrossed(thresholdCfg.operator, value, thresholdCfg.softThreshold.value)
+		}
+		if thresholdCfg.hardThreshold != nil {
+			hardCrossed = isThresholdCrossed(thresholdCfg.operator, value, thresholdCfg.hardThreshold.value)
+		}
+		
+		log.Debug().
+			Str("current_state", string(state.currentState)).
+			Bool("soft_crossed", softCrossed).
+			Bool("hard_crossed", hardCrossed).
+			Float64("value", value).
+			Msg("evaluating threshold state machine")
+		
 		// Transition: HardThresholdActive -> NotBreached (when threshold no longer crossed)
 		if !hardCrossed && !softCrossed {
 			oldState := state.currentState
@@ -593,6 +621,12 @@ func main() {
 		Msg("initialized threshold state machine")
 
 	for range ticker.C {
+		// Only process queries and state changes on the elected leader
+		// Non-leaders should only wait until they become leaders
+		if !IsLeader() {
+			continue
+		}
+		
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		result, warnings, err := v1api.Query(ctx, query, time.Now())
 		cancel()
