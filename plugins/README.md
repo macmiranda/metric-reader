@@ -12,8 +12,13 @@ type ActionPlugin interface {
     Execute(ctx context.Context, metricName string, value float64, threshold string, duration time.Duration) error
     // Name returns the name of the plugin
     Name() string
+    // ValidateConfig validates that all required configuration for the plugin is present
+    // Returns an error if configuration is invalid or missing required values
+    ValidateConfig() error
 }
 ```
+
+**Note:** The `ValidateConfig()` method is called immediately after the plugin is loaded. It should validate that all required configuration is present and return an error if anything is missing or invalid. This allows the application to fail fast at startup with clear error messages, rather than at runtime when the plugin is executed.
 
 ## Creating a Plugin
 
@@ -28,11 +33,14 @@ type ActionPlugin interface {
 
    import (
        "context"
+       "fmt"
+       "os"
        "time"
    )
 
    type MyPlugin struct {
        // Add your plugin configuration here
+       requiredConfig string
    }
 
    func (p *MyPlugin) Execute(ctx context.Context, metricName string, value float64, threshold string, duration time.Duration) error {
@@ -44,12 +52,23 @@ type ActionPlugin interface {
        return "my_plugin"
    }
 
+   func (p *MyPlugin) ValidateConfig() error {
+       // Validate that required configuration is present
+       if p.requiredConfig == "" {
+           return fmt.Errorf("MY_PLUGIN_CONFIG is required but not set")
+       }
+       return nil
+   }
+
    // Plugin is the exported plugin symbol
    var Plugin MyPlugin
 
    func init() {
        // Initialize your plugin here
-       Plugin = MyPlugin{}
+       requiredConfig := os.Getenv("MY_PLUGIN_CONFIG")
+       Plugin = MyPlugin{
+           requiredConfig: requiredConfig,
+       }
    }
    ```
 
@@ -101,21 +120,39 @@ See [efs_emergency/README.md](efs_emergency/README.md) for detailed documentatio
 1. Build your plugin as a shared library (`.so` file)
 2. Place the `.so` file in the plugin directory
 3. Set the `PLUGIN_DIR` environment variable to point to the directory containing your plugins
-4. Set the `ACTION_PLUGIN` environment variable to the name of your plugin
+4. Specify which plugin to use with `SOFT_THRESHOLD_PLUGIN` and/or `HARD_THRESHOLD_PLUGIN`
 
-Example:
+**Important:** Only plugins that are explicitly specified in `SOFT_THRESHOLD_PLUGIN` or `HARD_THRESHOLD_PLUGIN` will be loaded. This improves performance and security by not loading unnecessary plugins.
+
+Example with soft threshold:
 
 ```bash
-PLUGIN_DIR=/path/to/plugins ACTION_PLUGIN=my_plugin ./metric-reader
+PLUGIN_DIR=/path/to/plugins \
+SOFT_THRESHOLD_PLUGIN=my_plugin \
+SOFT_THRESHOLD=50 \
+./metric-reader
+```
+
+Example with both soft and hard thresholds:
+
+```bash
+PLUGIN_DIR=/path/to/plugins \
+SOFT_THRESHOLD_PLUGIN=log_action \
+SOFT_THRESHOLD=50 \
+HARD_THRESHOLD_PLUGIN=my_plugin \
+HARD_THRESHOLD=90 \
+./metric-reader
 ```
 
 ## Plugin Development Tips
 
-1. **Error Handling**: Always return meaningful errors from your `Execute` method
-2. **Context Usage**: Use the provided context for cancellation and timeouts
-3. **Configuration**: Use environment variables for plugin configuration
-4. **Logging**: Use the zerolog package for consistent logging
-5. **Testing**: Test your plugin thoroughly before deployment
+1. **Validation**: Always implement `ValidateConfig()` to check required configuration at startup
+2. **Error Handling**: Always return meaningful errors from your `Execute` method
+3. **Context Usage**: Use the provided context for cancellation and timeouts
+4. **Configuration**: Use environment variables for plugin configuration
+5. **Logging**: Use the zerolog package for consistent logging
+6. **Testing**: Test your plugin thoroughly before deployment
+7. **Fail Fast**: Use `ValidateConfig()` to detect configuration issues early, before the plugin is executed
 
 ## Example Plugin
 
@@ -128,6 +165,7 @@ import (
     "context"
     "fmt"
     "net/http"
+    "os"
     "time"
 )
 
@@ -152,6 +190,13 @@ func (p *HTTPPlugin) Execute(ctx context.Context, metricName string, value float
 
 func (p *HTTPPlugin) Name() string {
     return "http_plugin"
+}
+
+func (p *HTTPPlugin) ValidateConfig() error {
+    if p.endpoint == "" {
+        return fmt.Errorf("HTTP_PLUGIN_ENDPOINT is required but not set")
+    }
+    return nil
 }
 
 var Plugin HTTPPlugin
