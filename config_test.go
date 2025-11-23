@@ -87,14 +87,6 @@ func TestPluginConfigStructure(t *testing.T) {
 		t.Errorf("Test 1 failed: expected default plugins.file_action.size 1048576, got %d", config.Plugins.FileAction.Size)
 	}
 
-	// Check backward compatibility - old fields should also be populated
-	if config.FileActionDir != "/tmp/metric-files" {
-		t.Errorf("Test 1 failed: expected backward compatible file_action_dir '/tmp/metric-files', got %q", config.FileActionDir)
-	}
-	if config.FileActionSize != 1024*1024 {
-		t.Errorf("Test 1 failed: expected backward compatible file_action_size 1048576, got %d", config.FileActionSize)
-	}
-
 	// Test 2: Set plugin config via environment variables
 	os.Setenv("FILE_ACTION_DIR", "/custom/path")
 	os.Setenv("FILE_ACTION_SIZE", "2097152") // 2MB
@@ -118,20 +110,6 @@ func TestPluginConfigStructure(t *testing.T) {
 	}
 	if config.Plugins.EFSEmergency.AWSRegion != "us-west-2" {
 		t.Errorf("Test 2 failed: expected plugins.efs_emergency.aws_region 'us-west-2', got %q", config.Plugins.EFSEmergency.AWSRegion)
-	}
-
-	// Check backward compatibility - old fields should also get values
-	if config.FileActionDir != "/custom/path" {
-		t.Errorf("Test 2 failed: expected backward compatible file_action_dir '/custom/path', got %q", config.FileActionDir)
-	}
-	if config.FileActionSize != 2097152 {
-		t.Errorf("Test 2 failed: expected backward compatible file_action_size 2097152, got %d", config.FileActionSize)
-	}
-	if config.EFSFileSystemID != "fs-12345" {
-		t.Errorf("Test 2 failed: expected backward compatible efs_file_system_id 'fs-12345', got %q", config.EFSFileSystemID)
-	}
-	if config.AWSRegion != "us-west-2" {
-		t.Errorf("Test 2 failed: expected backward compatible aws_region 'us-west-2', got %q", config.AWSRegion)
 	}
 }
 
@@ -204,23 +182,9 @@ aws_region = "eu-west-1"
 	if config.Plugins.EFSEmergency.AWSRegion != "eu-west-1" {
 		t.Errorf("Expected nested plugins.efs_emergency.aws_region 'eu-west-1', got %q", config.Plugins.EFSEmergency.AWSRegion)
 	}
-	
-	// Verify backward compatibility fields are also populated
-	if config.FileActionDir != "/test/nested/path" {
-		t.Errorf("Expected backward compatible file_action_dir '/test/nested/path', got %q", config.FileActionDir)
-	}
-	if config.FileActionSize != 5242880 {
-		t.Errorf("Expected backward compatible file_action_size 5242880, got %d", config.FileActionSize)
-	}
-	if config.EFSFileSystemID != "fs-nested-test" {
-		t.Errorf("Expected backward compatible efs_file_system_id 'fs-nested-test', got %q", config.EFSFileSystemID)
-	}
-	if config.AWSRegion != "eu-west-1" {
-		t.Errorf("Expected backward compatible aws_region 'eu-west-1', got %q", config.AWSRegion)
-	}
 }
 
-func TestBackwardCompatibleFlatTOMLConfig(t *testing.T) {
+func TestNestedThresholdConfig(t *testing.T) {
 	// Save current working directory
 	originalWd, err := os.Getwd()
 	if err != nil {
@@ -228,10 +192,15 @@ func TestBackwardCompatibleFlatTOMLConfig(t *testing.T) {
 	}
 	defer os.Chdir(originalWd)
 
-	// Clear any existing env vars
-	envVars := []string{"FILE_ACTION_DIR", "FILE_ACTION_SIZE", "EFS_FILE_SYSTEM_ID", "AWS_REGION"}
+	// Clear any existing threshold env vars
+	thresholdEnvVars := []string{
+		"SOFT_THRESHOLD", "HARD_THRESHOLD",
+		"SOFT_PLUGIN", "HARD_PLUGIN",
+		"SOFT_DURATION", "HARD_DURATION",
+		"SOFT_BACKOFF_DELAY", "HARD_BACKOFF_DELAY",
+	}
 	savedEnvs := make(map[string]string)
-	for _, key := range envVars {
+	for _, key := range thresholdEnvVars {
 		savedEnvs[key] = os.Getenv(key)
 		os.Unsetenv(key)
 	}
@@ -248,16 +217,22 @@ func TestBackwardCompatibleFlatTOMLConfig(t *testing.T) {
 	// Create a temporary directory for the test
 	tmpDir := t.TempDir()
 	
-	// Create a config file with old flat structure (backward compatibility)
+	// Create a config file with new nested threshold structure
 	configContent := `log_level = "debug"
 metric_name = "test_metric"
 threshold_operator = "greater_than"
 
-# Old flat structure for backward compatibility
-file_action_dir = "/old/flat/path"
-file_action_size = 3145728
-efs_file_system_id = "fs-old-flat"
-aws_region = "ap-south-1"
+[soft]
+threshold = 80.0
+plugin = "log_action"
+duration = "30s"
+backoff_delay = "1m"
+
+[hard]
+threshold = 100.0
+plugin = "file_action"
+duration = "45s"
+backoff_delay = "2m"
 `
 	
 	configPath := tmpDir + "/config.toml"
@@ -274,31 +249,102 @@ aws_region = "ap-south-1"
 		t.Fatalf("Failed to load config: %v", err)
 	}
 	
-	// Verify old flat structure still works
-	if config.FileActionDir != "/old/flat/path" {
-		t.Errorf("Expected backward compatible file_action_dir '/old/flat/path', got %q", config.FileActionDir)
+	// Verify soft threshold section
+	if config.Soft == nil {
+		t.Fatal("Expected Soft section to be set, got nil")
 	}
-	if config.FileActionSize != 3145728 {
-		t.Errorf("Expected backward compatible file_action_size 3145728, got %d", config.FileActionSize)
+	if config.Soft.Threshold != 80.0 {
+		t.Errorf("Expected soft.threshold 80.0, got %f", config.Soft.Threshold)
 	}
-	if config.EFSFileSystemID != "fs-old-flat" {
-		t.Errorf("Expected backward compatible efs_file_system_id 'fs-old-flat', got %q", config.EFSFileSystemID)
+	if config.Soft.Plugin != "log_action" {
+		t.Errorf("Expected soft.plugin 'log_action', got %q", config.Soft.Plugin)
 	}
-	if config.AWSRegion != "ap-south-1" {
-		t.Errorf("Expected backward compatible aws_region 'ap-south-1', got %q", config.AWSRegion)
+	if config.Soft.Duration.Seconds() != 30 {
+		t.Errorf("Expected soft.duration 30s, got %v", config.Soft.Duration)
+	}
+	if config.Soft.BackoffDelay.Seconds() != 60 {
+		t.Errorf("Expected soft.backoff_delay 1m, got %v", config.Soft.BackoffDelay)
 	}
 	
-	// Verify new nested structure also gets populated
-	if config.Plugins.FileAction.Dir != "/old/flat/path" {
-		t.Errorf("Expected nested plugins.file_action.dir '/old/flat/path', got %q", config.Plugins.FileAction.Dir)
+	// Verify hard threshold section
+	if config.Hard == nil {
+		t.Fatal("Expected Hard section to be set, got nil")
 	}
-	if config.Plugins.FileAction.Size != 3145728 {
-		t.Errorf("Expected nested plugins.file_action.size 3145728, got %d", config.Plugins.FileAction.Size)
+	if config.Hard.Threshold != 100.0 {
+		t.Errorf("Expected hard.threshold 100.0, got %f", config.Hard.Threshold)
 	}
-	if config.Plugins.EFSEmergency.FileSystemID != "fs-old-flat" {
-		t.Errorf("Expected nested plugins.efs_emergency.file_system_id 'fs-old-flat', got %q", config.Plugins.EFSEmergency.FileSystemID)
+	if config.Hard.Plugin != "file_action" {
+		t.Errorf("Expected hard.plugin 'file_action', got %q", config.Hard.Plugin)
 	}
-	if config.Plugins.EFSEmergency.AWSRegion != "ap-south-1" {
-		t.Errorf("Expected nested plugins.efs_emergency.aws_region 'ap-south-1', got %q", config.Plugins.EFSEmergency.AWSRegion)
+	if config.Hard.Duration.Seconds() != 45 {
+		t.Errorf("Expected hard.duration 45s, got %v", config.Hard.Duration)
+	}
+	if config.Hard.BackoffDelay.Seconds() != 120 {
+		t.Errorf("Expected hard.backoff_delay 2m, got %v", config.Hard.BackoffDelay)
+	}
+}
+
+func TestEnvironmentVariableThresholdConfig(t *testing.T) {
+	// Save current working directory
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	// Save original env vars and set test values
+	thresholdEnvVars := map[string]string{
+		"SOFT_THRESHOLD":      "85.5",
+		"SOFT_DURATION":       "35s",
+		"SOFT_BACKOFF_DELAY":  "90s",
+		"HARD_THRESHOLD":      "95.5",
+		"HARD_DURATION":       "40s",
+		"HARD_BACKOFF_DELAY":  "120s",
+		"THRESHOLD_OPERATOR":  "less_than",
+	}
+	savedEnvs := make(map[string]string)
+	for key := range thresholdEnvVars {
+		savedEnvs[key] = os.Getenv(key)
+	}
+	defer func() {
+		for key, value := range savedEnvs {
+			if value != "" {
+				os.Setenv(key, value)
+			} else {
+				os.Unsetenv(key)
+			}
+		}
+	}()
+	
+	// Set test env vars
+	for key, value := range thresholdEnvVars {
+		os.Setenv(key, value)
+	}
+
+	// Create a temporary directory without a config file
+	tmpDir := t.TempDir()
+	os.Chdir(tmpDir)
+	
+	// Load config (should use env vars)
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+	
+	// Verify threshold values from environment
+	if config.Soft == nil {
+		t.Fatal("Expected Soft section from env vars, got nil")
+	}
+	if config.Soft.Threshold != 85.5 {
+		t.Errorf("Expected soft.threshold 85.5 from env, got %f", config.Soft.Threshold)
+	}
+	if config.Hard == nil {
+		t.Fatal("Expected Hard section from env vars, got nil")
+	}
+	if config.Hard.Threshold != 95.5 {
+		t.Errorf("Expected hard.threshold 95.5 from env, got %f", config.Hard.Threshold)
+	}
+	if config.ThresholdOperator != "less_than" {
+		t.Errorf("Expected threshold_operator 'less_than' from env, got %q", config.ThresholdOperator)
 	}
 }

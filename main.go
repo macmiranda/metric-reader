@@ -113,8 +113,10 @@ func processThresholdStateMachine(
 	state *stateData,
 	thresholdCfg *thresholdConfig,
 	value float64,
-	thresholdDuration time.Duration,
-	backoffDelay time.Duration,
+	softDuration time.Duration,
+	softBackoffDelay time.Duration,
+	hardDuration time.Duration,
+	hardBackoffDelay time.Duration,
 	metricName string,
 	query string,
 ) {
@@ -161,7 +163,7 @@ func processThresholdStateMachine(
 					Float64("soft_threshold", thresholdCfg.softThreshold.value).
 					Str("operator", string(thresholdCfg.operator)).
 					Msg("soft threshold crossed, starting duration timer")
-			} else if now.Sub(state.softThresholdStartTime) >= thresholdDuration {
+			} else if now.Sub(state.softThresholdStartTime) >= softDuration {
 				// Duration exceeded, transition to SoftThresholdActive
 				oldState := state.currentState
 				state.currentState = stateSoftThresholdActive
@@ -196,11 +198,11 @@ func processThresholdStateMachine(
 							Msg("soft threshold plugin executed successfully")
 						
 						// Set backoff period after successful action
-						if backoffDelay > 0 {
-							state.softBackoffUntil = now.Add(backoffDelay)
+						if softBackoffDelay > 0 {
+							state.softBackoffUntil = now.Add(softBackoffDelay)
 							log.Debug().
 								Time("soft_backoff_until", state.softBackoffUntil).
-								Dur("backoff_delay", backoffDelay).
+								Dur("backoff_delay", softBackoffDelay).
 								Msg("soft threshold backoff period started")
 						}
 					}
@@ -249,7 +251,7 @@ func processThresholdStateMachine(
 					Float64("hard_threshold", thresholdCfg.hardThreshold.value).
 					Str("operator", string(thresholdCfg.operator)).
 					Msg("hard threshold crossed, starting duration timer")
-			} else if now.Sub(state.hardThresholdStartTime) >= thresholdDuration {
+			} else if now.Sub(state.hardThresholdStartTime) >= hardDuration {
 				// Duration exceeded, transition to HardThresholdActive
 				oldState := state.currentState
 				state.currentState = stateHardThresholdActive
@@ -284,11 +286,11 @@ func processThresholdStateMachine(
 							Msg("hard threshold plugin executed successfully")
 						
 						// Set backoff period after successful action
-						if backoffDelay > 0 {
-							state.hardBackoffUntil = now.Add(backoffDelay)
+						if hardBackoffDelay > 0 {
+							state.hardBackoffUntil = now.Add(hardBackoffDelay)
 							log.Debug().
 								Time("hard_backoff_until", state.hardBackoffUntil).
-								Dur("backoff_delay", backoffDelay).
+								Dur("backoff_delay", hardBackoffDelay).
 								Msg("hard threshold backoff period started")
 						}
 					}
@@ -330,8 +332,8 @@ func processThresholdStateMachine(
 							Msg("soft threshold plugin re-executed successfully after backoff")
 						
 						// Reset backoff
-						if backoffDelay > 0 {
-							state.softBackoffUntil = now.Add(backoffDelay)
+						if softBackoffDelay > 0 {
+							state.softBackoffUntil = now.Add(softBackoffDelay)
 							log.Debug().
 								Time("soft_backoff_until", state.softBackoffUntil).
 								Msg("soft threshold backoff period restarted")
@@ -401,8 +403,8 @@ func processThresholdStateMachine(
 							Msg("hard threshold plugin re-executed successfully after backoff")
 						
 						// Reset backoff
-						if backoffDelay > 0 {
-							state.hardBackoffUntil = now.Add(backoffDelay)
+						if hardBackoffDelay > 0 {
+							state.hardBackoffUntil = now.Add(hardBackoffDelay)
 							log.Debug().
 								Time("hard_backoff_until", state.hardBackoffUntil).
 								Msg("hard threshold backoff period restarted")
@@ -467,8 +469,10 @@ func main() {
 
 	// Get threshold configuration from config
 	var thresholdCfg *thresholdConfig
+	var softDuration, hardDuration time.Duration
+	var softBackoffDelay, hardBackoffDelay time.Duration
 
-	if config.ThresholdOperator != "" && (config.SoftThreshold != nil || config.HardThreshold != nil) {
+	if config.ThresholdOperator != "" && (config.Soft != nil || config.Hard != nil) {
 		operator, err := parseThresholdOperator(config.ThresholdOperator)
 		if err != nil {
 			log.Fatal().Err(err).Msg("invalid THRESHOLD_OPERATOR value")
@@ -479,25 +483,23 @@ func main() {
 		}
 
 		// Parse soft threshold if provided
-		if config.SoftThreshold != nil {
+		if config.Soft != nil {
 			thresholdCfg.softThreshold = &threshold{
-				value: *config.SoftThreshold,
+				value: config.Soft.Threshold,
 			}
+			softDuration = config.Soft.Duration
+			softBackoffDelay = config.Soft.BackoffDelay
 		}
 
 		// Parse hard threshold if provided
-		if config.HardThreshold != nil {
+		if config.Hard != nil {
 			thresholdCfg.hardThreshold = &threshold{
-				value: *config.HardThreshold,
+				value: config.Hard.Threshold,
 			}
+			hardDuration = config.Hard.Duration
+			hardBackoffDelay = config.Hard.BackoffDelay
 		}
 	}
-
-	// Get threshold duration from config
-	thresholdDuration := config.ThresholdDuration
-
-	// Get backoff delay from config
-	backoffDelay := config.BackoffDelay
 
 	// Get polling interval from config
 	pollingInterval := config.PollingInterval
@@ -513,11 +515,11 @@ func main() {
 
 	// Determine which plugins are needed
 	requiredPlugins := make(map[string]bool)
-	if config.SoftThresholdPlugin != "" {
-		requiredPlugins[config.SoftThresholdPlugin] = true
+	if config.Soft != nil && config.Soft.Plugin != "" {
+		requiredPlugins[config.Soft.Plugin] = true
 	}
-	if config.HardThresholdPlugin != "" {
-		requiredPlugins[config.HardThresholdPlugin] = true
+	if config.Hard != nil && config.Hard.Plugin != "" {
+		requiredPlugins[config.Hard.Plugin] = true
 	}
 
 	// Get plugin directory from config and load only required plugins
@@ -530,28 +532,35 @@ func main() {
 
 	// Assign plugins to thresholds and validate configuration
 	if thresholdCfg != nil {
-		validateThresholdPlugin(config.SoftThresholdPlugin, thresholdCfg.softThreshold, "SOFT")
-		validateThresholdPlugin(config.HardThresholdPlugin, thresholdCfg.hardThreshold, "HARD")
+		if config.Soft != nil {
+			validateThresholdPlugin(config.Soft.Plugin, thresholdCfg.softThreshold, "SOFT")
+		}
+		if config.Hard != nil {
+			validateThresholdPlugin(config.Hard.Plugin, thresholdCfg.hardThreshold, "HARD")
+		}
 	}
 
 	logEvent := log.Info().
 		Str("metric_name", metricName).
 		Str("prometheus_endpoint", prometheusEndpoint).
 		Dur("polling_interval", pollingInterval).
-		Dur("threshold_duration", thresholdDuration).
 		Str("query", query).
 		Str("missing_value_behavior", string(missingValueBehavior))
 
 	if thresholdCfg != nil {
 		logEvent = logEvent.Str("threshold_operator", string(thresholdCfg.operator))
 		if thresholdCfg.softThreshold != nil {
-			logEvent = logEvent.Float64("soft_threshold", thresholdCfg.softThreshold.value)
+			logEvent = logEvent.Float64("soft_threshold", thresholdCfg.softThreshold.value).
+				Dur("soft_duration", softDuration).
+				Dur("soft_backoff_delay", softBackoffDelay)
 			if thresholdCfg.softThreshold.plugin != nil {
 				logEvent = logEvent.Str("soft_threshold_plugin", thresholdCfg.softThreshold.plugin.Name())
 			}
 		}
 		if thresholdCfg.hardThreshold != nil {
-			logEvent = logEvent.Float64("hard_threshold", thresholdCfg.hardThreshold.value)
+			logEvent = logEvent.Float64("hard_threshold", thresholdCfg.hardThreshold.value).
+				Dur("hard_duration", hardDuration).
+				Dur("hard_backoff_delay", hardBackoffDelay)
 			if thresholdCfg.hardThreshold.plugin != nil {
 				logEvent = logEvent.Str("hard_threshold_plugin", thresholdCfg.hardThreshold.plugin.Name())
 			}
@@ -695,8 +704,8 @@ func main() {
 										log.Info().
 											Str("plugin", thresholdCfg.softThreshold.plugin.Name()).
 											Msg("soft threshold plugin executed for assume_breached")
-										if backoffDelay > 0 {
-											state.softBackoffUntil = now.Add(backoffDelay)
+										if softBackoffDelay > 0 {
+											state.softBackoffUntil = now.Add(softBackoffDelay)
 										}
 									}
 								}
@@ -736,8 +745,8 @@ func main() {
 										log.Info().
 											Str("plugin", thresholdCfg.hardThreshold.plugin.Name()).
 											Msg("hard threshold plugin executed for assume_breached")
-										if backoffDelay > 0 {
-											state.hardBackoffUntil = now.Add(backoffDelay)
+										if hardBackoffDelay > 0 {
+											state.hardBackoffUntil = now.Add(hardBackoffDelay)
 										}
 									}
 								}
@@ -755,7 +764,7 @@ func main() {
 
 			// Process threshold configuration if set and we have a value to check
 			if valueFound && thresholdCfg != nil {
-				processThresholdStateMachine(state, thresholdCfg, value, thresholdDuration, backoffDelay, metricName, query)
+				processThresholdStateMachine(state, thresholdCfg, value, softDuration, softBackoffDelay, hardDuration, hardBackoffDelay, metricName, query)
 			}
 		} else {
 			log.Error().

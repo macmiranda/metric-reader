@@ -4,6 +4,8 @@
 
 Metric-reader is a lightweight Go application that monitors Prometheus metrics and executes configurable actions when thresholds are exceeded for a specified duration. It's designed to run as a sidecar container in Kubernetes Pods but can also run as a standalone service.
 
+**Alpha Phase:** This project is in alpha (pre-1.0). Breaking changes are acceptable and backward compatibility is not required. Focus on simplicity and clean design over maintaining old APIs.
+
 ### Key Capabilities
 - Monitor any Prometheus metric with configurable thresholds
 - Execute custom actions via a plugin system
@@ -34,6 +36,7 @@ Metric-reader is a lightweight Go application that monitors Prometheus metrics a
 4. **Built-in Plugins**
    - `file_action`: Creates files of configurable size
    - `log_action`: Logs threshold events with detailed information
+   - `efs_emergency`: Switches AWS EFS from bursting to elastic throughput mode
 
 ## Build and Test
 
@@ -223,10 +226,13 @@ go mod verify      # Verify dependencies
    - Reference issue numbers when applicable
   
 5. **Documentation**
-   - Update the README.md when a new feature is added to the reader.
-   - Every plugin should have its own README.md explaining how to implement it, and use it (e.g. configuration options).
-   - Update the copilot-instructions.md with new features, and ideas for improvement.
-   - Other agents may be used with the same repo so leave instructions for them in AGENTS.md as well.
+   - **Always update README.md** when adding new features to the reader
+   - **Always update .github/copilot-instructions.md** with new features and implementation details
+   - **Always update deployment files** when changing configuration structure:
+     - `docker-compose.yml` - update environment variables
+     - `kubernetes/metric-reader.yaml` - update ConfigMap with new config structure
+   - Every plugin should have its own README.md explaining how to implement it, and use it (e.g. configuration options)
+   - Update config.toml.example with new configuration sections
 
 ## Common Tasks
 
@@ -300,6 +306,77 @@ go test -v ./...                    # Verify changes
    - Check metric name and label filters
    - Review Prometheus query warnings in logs
    - Increase `LOG_LEVEL=debug` for more details
+
+## Threshold Configuration
+
+Use separate `[soft]` and `[hard]` sections in `config.toml` with independent timing:
+
+```toml
+threshold_operator = "greater_than"
+
+[soft]
+threshold = 80.0
+plugin = "log_action"
+duration = "30s"
+backoff_delay = "1m"
+
+[hard]
+threshold = 100.0
+plugin = "file_action"
+duration = "30s"
+backoff_delay = "1m"
+```
+
+Each section has: `threshold`, `plugin`, `duration`, `backoff_delay`
+
+Environment variables: `SOFT_THRESHOLD`, `SOFT_PLUGIN`, `SOFT_DURATION`, `SOFT_BACKOFF_DELAY`, `HARD_THRESHOLD`, `HARD_PLUGIN`, `HARD_DURATION`, `HARD_BACKOFF_DELAY`
+
+## EFS Emergency Plugin
+
+The `efs_emergency` plugin switches an AWS EFS filesystem from bursting to elastic throughput mode when thresholds are exceeded. This is designed for emergency situations when burst credits are depleted.
+
+### Key Features
+- Switches EFS from bursting to elastic throughput mode
+- Supports static filesystem ID or dynamic ID from Prometheus metric labels
+- Works with AWS IAM roles (IRSA on EKS), instance profiles, or access keys
+- Auto-detects AWS region if not configured
+
+### Configuration
+
+Via config file:
+```toml
+[plugins.efs_emergency]
+file_system_id = "fs-0123456789abcdef0"  # Static ID (optional if using label)
+file_system_prometheus_label = "file_system_id"  # Dynamic from metric (optional if using static)
+aws_region = "us-east-1"  # Optional, auto-detected if not set
+```
+
+Via environment variables:
+- `EFS_FILE_SYSTEM_ID`: Static filesystem ID
+- `EFS_FILE_SYSTEM_PROMETHEUS_LABEL`: Name of Prometheus label containing filesystem ID
+- `AWS_REGION`: AWS region (optional)
+
+At least one of `EFS_FILE_SYSTEM_ID` or `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` must be set.
+
+### IAM Permissions Required
+
+```json
+{
+  "Effect": "Allow",
+  "Action": [
+    "elasticfilesystem:UpdateFileSystem",
+    "elasticfilesystem:DescribeFileSystems"
+  ],
+  "Resource": "arn:aws:elasticfilesystem:REGION:ACCOUNT_ID:file-system/FILE_SYSTEM_ID"
+}
+```
+
+### Use Cases
+- Emergency response when EFS burst credits are depleted
+- Monitoring `aws_efs_burst_credit_balance` from CloudWatch via YACE
+- Automatic failover to prevent filesystem performance degradation
+
+See `plugins/efs_emergency/README.md` for detailed setup instructions including IRSA configuration.
 
 ## Additional Resources
 

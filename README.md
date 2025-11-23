@@ -152,13 +152,22 @@ Example `config.toml`:
 log_level = "info"
 metric_name = "up"
 threshold_operator = "greater_than"
-soft_threshold = 80.0
-hard_threshold = 100.0
-soft_threshold_plugin = "log_action"
-hard_threshold_plugin = "file_action"
-threshold_duration = "30s"
 polling_interval = "15s"
 prometheus_endpoint = "http://prometheus:9090"
+
+# Soft threshold configuration (new recommended structure)
+[soft]
+threshold = 80.0
+plugin = "log_action"
+duration = "30s"
+backoff_delay = "1m"
+
+# Hard threshold configuration (new recommended structure)
+[hard]
+threshold = 100.0
+plugin = "file_action"
+duration = "30s"
+backoff_delay = "1m"
 
 # Plugin-specific configuration in separate sections
 [plugins.file_action]
@@ -170,7 +179,7 @@ size = 1048576  # 1MB
 # aws_region = "us-east-1"
 ```
 
-**Note:** The new nested `[plugins.<plugin_name>]` sections are recommended for better organization. The old flat structure (e.g., `file_action_dir`) is still supported for backward compatibility.
+**Breaking Change (v0.x):** The configuration now requires `[soft]` and `[hard]` sections for threshold configuration. Each section has its own `threshold`, `plugin`, `duration`, and `backoff_delay` settings.
 
 ### Environment Variables
 
@@ -182,12 +191,14 @@ All configuration options can be set via environment variables using uppercase n
 | `LABEL_FILTERS` | Label filters to apply to the metric query | (optional) |
 | `THRESHOLD_OPERATOR` | Threshold operator: `greater_than` or `less_than` | (required with thresholds) |
 | `SOFT_THRESHOLD` | Soft threshold value (float) | (optional) |
+| `SOFT_PLUGIN` | Plugin to execute when soft threshold is exceeded | (optional) |
+| `SOFT_DURATION` | How long soft threshold must be exceeded before action | (optional) |
+| `SOFT_BACKOFF_DELAY` | Delay between soft threshold actions | (optional) |
 | `HARD_THRESHOLD` | Hard threshold value (float) | (optional) |
-| `SOFT_THRESHOLD_PLUGIN` | Plugin to execute when soft threshold is exceeded | (optional) |
-| `HARD_THRESHOLD_PLUGIN` | Plugin to execute when hard threshold is exceeded | (optional) |
-| `THRESHOLD_DURATION` | How long the threshold must be exceeded before action | 0s |
+| `HARD_PLUGIN` | Plugin to execute when hard threshold is exceeded | (optional) |
+| `HARD_DURATION` | How long hard threshold must be exceeded before action | (optional) |
+| `HARD_BACKOFF_DELAY` | Delay between hard threshold actions | (optional) |
 | `POLLING_INTERVAL` | How often to check the metric | 1s |
-| `BACKOFF_DELAY` | Delay between actions after threshold is triggered | 0s |
 | `PROMETHEUS_ENDPOINT` | Prometheus server URL | http://prometheus:9090 |
 | `PLUGIN_DIR` | Directory containing plugin .so files | (optional) |
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | info |
@@ -289,9 +300,10 @@ docker run -d \
   -e THRESHOLD_OPERATOR="greater_than" \
   -e SOFT_THRESHOLD="80" \
   -e HARD_THRESHOLD="100" \
-  -e SOFT_THRESHOLD_PLUGIN="log_action" \
-  -e HARD_THRESHOLD_PLUGIN="file_action" \
-  -e THRESHOLD_DURATION="5m" \
+  -e SOFT_PLUGIN="log_action" \
+  -e HARD_PLUGIN="file_action" \
+  -e SOFT_DURATION="5m" \
+  -e HARD_DURATION="5m" \
   -e PLUGIN_DIR="/plugins" \
   -v /path/to/plugins:/plugins \
   metric-reader
@@ -309,5 +321,13 @@ See the [plugins README](plugins/README.md) for information on creating custom p
 
 **Important Notes:**
 - Plugins must implement the `ValidateConfig()` method to validate configuration at startup
-- Only plugins specified in `SOFT_THRESHOLD_PLUGIN` or `HARD_THRESHOLD_PLUGIN` are loaded
+- Only plugins specified in `SOFT_PLUGIN` or `HARD_PLUGIN` are loaded
 - The application will fail fast with clear error messages if plugin configuration is invalid
+
+## Contributing
+
+When adding new features:
+- **Always update README.md** with user-facing documentation
+- **Always update .github/copilot-instructions.md** with implementation details
+- Update config.toml.example with new configuration options
+- Add tests for new functionality
