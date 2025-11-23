@@ -367,3 +367,96 @@ func TestSoftThresholdOnly(t *testing.T) {
 		t.Errorf("Expected soft plugin to be executed once, but it was called %d times", softPlugin.executeCount)
 	}
 }
+
+// TestNonLeaderDoesNotExecutePlugin tests that plugins are not executed when not leader
+func TestNonLeaderDoesNotExecutePlugin(t *testing.T) {
+	// Ensure we're not leader
+	leaderActive.Store(false)
+	defer leaderActive.Store(false)
+	
+	softPlugin := &testPlugin{name: "soft_plugin"}
+	
+	state := &stateData{
+		currentState: stateNotBreached,
+	}
+	
+	thresholdCfg := &thresholdConfig{
+		operator: thresholdOperatorGreaterThan,
+		softThreshold: &threshold{
+			value:  80.0,
+			plugin: softPlugin,
+		},
+	}
+	
+	// Simulate threshold already exceeded for duration
+	state.softThresholdStartTime = time.Now().Add(-6 * time.Second)
+	processThresholdStateMachine(state, thresholdCfg, 90.0, 5*time.Second, 0, 5*time.Second, 0, "test_metric", "test_query")
+	
+	// State should transition even if not leader
+	if state.currentState != stateSoftThresholdActive {
+		t.Errorf("Expected state to transition to SoftThresholdActive even when not leader, got %s", state.currentState)
+	}
+	
+	// Plugin should NOT be executed when not leader
+	if softPlugin.executeCount != 0 {
+		t.Errorf("Expected plugin NOT to be executed when not leader, but it was called %d times", softPlugin.executeCount)
+	}
+}
+
+// TestOnlyRelevantThresholdsChecked verifies optimization that only relevant thresholds are checked per state
+func TestOnlyRelevantThresholdsChecked(t *testing.T) {
+	// This is more of a code review test - we verify the behavior works correctly
+	// The actual optimization is in the implementation where thresholds are only checked when needed
+	
+	// Set leader active for tests
+	leaderActive.Store(true)
+	defer leaderActive.Store(false)
+	
+	softPlugin := &testPlugin{name: "soft_plugin"}
+	hardPlugin := &testPlugin{name: "hard_plugin"}
+	
+	state := &stateData{
+		currentState: stateNotBreached,
+	}
+	
+	thresholdCfg := &thresholdConfig{
+		operator: thresholdOperatorGreaterThan,
+		softThreshold: &threshold{
+			value:  80.0,
+			plugin: softPlugin,
+		},
+		hardThreshold: &threshold{
+			value:  100.0,
+			plugin: hardPlugin,
+		},
+	}
+	
+	// In NotBreached state with value only exceeding soft threshold
+	// Only soft threshold should be processed
+	state.softThresholdStartTime = time.Now().Add(-6 * time.Second)
+	processThresholdStateMachine(state, thresholdCfg, 90.0, 5*time.Second, 0, 5*time.Second, 0, "test_metric", "test_query")
+	
+	if state.currentState != stateSoftThresholdActive {
+		t.Errorf("Expected transition to SoftThresholdActive, got %s", state.currentState)
+	}
+	
+	if softPlugin.executeCount != 1 {
+		t.Errorf("Expected soft plugin to execute once, got %d", softPlugin.executeCount)
+	}
+	
+	if hardPlugin.executeCount != 0 {
+		t.Errorf("Expected hard plugin NOT to execute in NotBreached state, got %d executions", hardPlugin.executeCount)
+	}
+	
+	// Now in SoftThresholdActive, exceed hard threshold
+	state.hardThresholdStartTime = time.Now().Add(-6 * time.Second)
+	processThresholdStateMachine(state, thresholdCfg, 110.0, 5*time.Second, 0, 5*time.Second, 0, "test_metric", "test_query")
+	
+	if state.currentState != stateHardThresholdActive {
+		t.Errorf("Expected transition to HardThresholdActive, got %s", state.currentState)
+	}
+	
+	if hardPlugin.executeCount != 1 {
+		t.Errorf("Expected hard plugin to execute once, got %d", hardPlugin.executeCount)
+	}
+}
