@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -211,9 +212,10 @@ func TestLoadRequiredPlugins_MissingRequiredPlugin(t *testing.T) {
 		t.Error("Expected error when required plugin is not found, got nil")
 	}
 
-	if err != nil && len(err.Error()) > 0 {
-		if !contains(err.Error(), "required plugin") || !contains(err.Error(), "missing_plugin") {
-			t.Errorf("Expected error message to contain 'required plugin' and 'missing_plugin', got: %s", err.Error())
+	if err != nil {
+		errMsg := err.Error()
+		if !strings.Contains(errMsg, "required plugin") || !strings.Contains(errMsg, "missing_plugin") {
+			t.Errorf("Expected error message to contain 'required plugin' and 'missing_plugin', got: %s", errMsg)
 		}
 	}
 }
@@ -233,20 +235,4 @@ func TestLoadRequiredPlugins_EmptyRequiredPlugins(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error with empty required plugins, got: %v", err)
 	}
-}
-
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && 
-		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || 
-		len(s) > len(substr) && containsInMiddle(s, substr)))
-}
-
-func containsInMiddle(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

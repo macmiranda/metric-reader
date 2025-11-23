@@ -55,14 +55,20 @@ func (p *FileActionPlugin) Name() string {
 
 // ValidateConfig implements the ActionPlugin interface
 func (p *FileActionPlugin) ValidateConfig() error {
-	// Check that output directory is configured
+	// Output directory should always be set (either from config or default)
+	// but validate it's not empty as a sanity check
 	if p.outputDir == "" {
-		return fmt.Errorf("FILE_ACTION_DIR is required but not set")
+		return fmt.Errorf("FILE_ACTION_DIR is empty - plugin not properly initialized")
 	}
 	
 	// Check that file size is valid
 	if p.fileSize <= 0 {
 		return fmt.Errorf("FILE_ACTION_SIZE must be greater than 0, got %d", p.fileSize)
+	}
+	
+	// Verify the directory exists and is writable
+	if err := os.MkdirAll(p.outputDir, 0755); err != nil {
+		return fmt.Errorf("cannot create or access FILE_ACTION_DIR '%s': %v", p.outputDir, err)
 	}
 	
 	return nil

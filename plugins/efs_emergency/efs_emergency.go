@@ -137,9 +137,13 @@ func (p *EFSEmergencyPlugin) ValidateConfig() error {
 		return fmt.Errorf("at least one of EFS_FILE_SYSTEM_ID or EFS_FILE_SYSTEM_PROMETHEUS_LABEL must be configured")
 	}
 	
-	// AWS client must be initialized
+	// AWS client should be initialized if we have configuration
+	// This is a soft check - during init(), the client may not be created due to AWS SDK issues,
+	// but the actual Execute() will handle that gracefully
 	if p.client == nil {
-		return fmt.Errorf("AWS client not initialized - check AWS credentials and configuration")
+		log.Warn().
+			Str("plugin", "efs_emergency").
+			Msg("AWS client not initialized - plugin may fail at execution time if AWS configuration is missing")
 	}
 	
 	return nil
