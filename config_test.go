@@ -195,7 +195,7 @@ func TestNestedThresholdConfig(t *testing.T) {
 	// Clear any existing threshold env vars
 	thresholdEnvVars := []string{
 		"SOFT_THRESHOLD", "HARD_THRESHOLD",
-		"SOFT_THRESHOLD_PLUGIN", "HARD_THRESHOLD_PLUGIN",
+		"SOFT_PLUGIN", "HARD_PLUGIN",
 		"SOFT_DURATION", "HARD_DURATION",
 		"SOFT_BACKOFF_DELAY", "HARD_BACKOFF_DELAY",
 	}

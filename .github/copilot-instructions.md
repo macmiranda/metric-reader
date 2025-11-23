@@ -325,7 +325,7 @@ backoff_delay = "1m"
 
 Each section has: `threshold`, `plugin`, `duration`, `backoff_delay`
 
-Environment variables: `SOFT_THRESHOLD`, `SOFT_THRESHOLD_PLUGIN`, `SOFT_DURATION`, `SOFT_BACKOFF_DELAY`, `HARD_THRESHOLD`, `HARD_THRESHOLD_PLUGIN`, `HARD_DURATION`, `HARD_BACKOFF_DELAY`
+Environment variables: `SOFT_THRESHOLD`, `SOFT_PLUGIN`, `SOFT_DURATION`, `SOFT_BACKOFF_DELAY`, `HARD_THRESHOLD`, `HARD_PLUGIN`, `HARD_DURATION`, `HARD_BACKOFF_DELAY`
 
 ## Additional Resources
 

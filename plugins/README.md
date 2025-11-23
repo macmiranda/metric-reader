@@ -120,15 +120,15 @@ See [efs_emergency/README.md](efs_emergency/README.md) for detailed documentatio
 1. Build your plugin as a shared library (`.so` file)
 2. Place the `.so` file in the plugin directory
 3. Set the `PLUGIN_DIR` environment variable to point to the directory containing your plugins
-4. Specify which plugin to use with `SOFT_THRESHOLD_PLUGIN` and/or `HARD_THRESHOLD_PLUGIN`
+4. Specify which plugin to use with `SOFT_PLUGIN` and/or `HARD_PLUGIN`
 
-**Important:** Only plugins that are explicitly specified in `SOFT_THRESHOLD_PLUGIN` or `HARD_THRESHOLD_PLUGIN` will be loaded. This improves performance and security by not loading unnecessary plugins.
+**Important:** Only plugins that are explicitly specified in `SOFT_PLUGIN` or `HARD_PLUGIN` will be loaded. This improves performance and security by not loading unnecessary plugins.
 
 Example with soft threshold:
 
 ```bash
 PLUGIN_DIR=/path/to/plugins \
-SOFT_THRESHOLD_PLUGIN=my_plugin \
+SOFT_PLUGIN=my_plugin \
 SOFT_THRESHOLD=50 \
 ./metric-reader
 ```
@@ -137,9 +137,9 @@ Example with both soft and hard thresholds:
 
 ```bash
 PLUGIN_DIR=/path/to/plugins \
-SOFT_THRESHOLD_PLUGIN=log_action \
+SOFT_PLUGIN=log_action \
 SOFT_THRESHOLD=50 \
-HARD_THRESHOLD_PLUGIN=my_plugin \
+HARD_PLUGIN=my_plugin \
 HARD_THRESHOLD=90 \
 ./metric-reader
 ```

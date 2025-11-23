@@ -191,11 +191,11 @@ All configuration options can be set via environment variables using uppercase n
 | `LABEL_FILTERS` | Label filters to apply to the metric query | (optional) |
 | `THRESHOLD_OPERATOR` | Threshold operator: `greater_than` or `less_than` | (required with thresholds) |
 | `SOFT_THRESHOLD` | Soft threshold value (float) | (optional) |
-| `SOFT_THRESHOLD_PLUGIN` | Plugin to execute when soft threshold is exceeded | (optional) |
+| `SOFT_PLUGIN` | Plugin to execute when soft threshold is exceeded | (optional) |
 | `SOFT_DURATION` | How long soft threshold must be exceeded before action | (optional) |
 | `SOFT_BACKOFF_DELAY` | Delay between soft threshold actions | (optional) |
 | `HARD_THRESHOLD` | Hard threshold value (float) | (optional) |
-| `HARD_THRESHOLD_PLUGIN` | Plugin to execute when hard threshold is exceeded | (optional) |
+| `HARD_PLUGIN` | Plugin to execute when hard threshold is exceeded | (optional) |
 | `HARD_DURATION` | How long hard threshold must be exceeded before action | (optional) |
 | `HARD_BACKOFF_DELAY` | Delay between hard threshold actions | (optional) |
 | `POLLING_INTERVAL` | How often to check the metric | 1s |
@@ -300,9 +300,10 @@ docker run -d \
   -e THRESHOLD_OPERATOR="greater_than" \
   -e SOFT_THRESHOLD="80" \
   -e HARD_THRESHOLD="100" \
-  -e SOFT_THRESHOLD_PLUGIN="log_action" \
-  -e HARD_THRESHOLD_PLUGIN="file_action" \
-  -e THRESHOLD_DURATION="5m" \
+  -e SOFT_PLUGIN="log_action" \
+  -e HARD_PLUGIN="file_action" \
+  -e SOFT_DURATION="5m" \
+  -e HARD_DURATION="5m" \
   -e PLUGIN_DIR="/plugins" \
   -v /path/to/plugins:/plugins \
   metric-reader
@@ -320,7 +321,7 @@ See the [plugins README](plugins/README.md) for information on creating custom p
 
 **Important Notes:**
 - Plugins must implement the `ValidateConfig()` method to validate configuration at startup
-- Only plugins specified in `SOFT_THRESHOLD_PLUGIN` or `HARD_THRESHOLD_PLUGIN` are loaded
+- Only plugins specified in `SOFT_PLUGIN` or `HARD_PLUGIN` are loaded
 - The application will fail fast with clear error messages if plugin configuration is invalid
 
 ## Contributing
