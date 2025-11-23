@@ -130,6 +130,25 @@ func (p *EFSEmergencyPlugin) Name() string {
 	return "efs_emergency"
 }
 
+// ValidateConfig implements the ActionPlugin interface
+func (p *EFSEmergencyPlugin) ValidateConfig() error {
+	// At least one of filesystem ID or metric label must be configured
+	if p.fileSystemId == "" && p.metricLabelName == "" {
+		return fmt.Errorf("at least one of EFS_FILE_SYSTEM_ID or EFS_FILE_SYSTEM_PROMETHEUS_LABEL must be configured")
+	}
+	
+	// AWS client should be initialized if we have configuration
+	// This is a soft check - during init(), the client may not be created due to AWS SDK issues,
+	// but the actual Execute() will handle that gracefully
+	if p.client == nil {
+		log.Warn().
+			Str("plugin", p.Name()).
+			Msg("AWS client not initialized - plugin may fail at execution time if AWS configuration is missing")
+	}
+	
+	return nil
+}
+
 // Plugin is the exported plugin symbol
 var Plugin EFSEmergencyPlugin
 
@@ -144,21 +163,6 @@ func init() {
 	prometheusEndpoint := os.Getenv("PROMETHEUS_ENDPOINT")
 	if prometheusEndpoint == "" {
 		prometheusEndpoint = "http://prometheus:9090"
-	}
-
-	// Validate configuration
-	if fileSystemId == "" && metricLabelName == "" {
-		// Don't fail during tests or when the plugin is not being used
-		log.Warn().Msg("Neither EFS_FILE_SYSTEM_ID nor EFS_FILE_SYSTEM_PROMETHEUS_LABEL configured - plugin will fail if executed")
-		Plugin = EFSEmergencyPlugin{
-			fileSystemId:      "",
-			metricLabelName:   "",
-			region:            "",
-			client:            nil,
-			prometheusAPI:     nil,
-			prometheusEnabled: false,
-		}
-		return
 	}
 
 	// Get AWS region from environment (optional, will use default if not set)

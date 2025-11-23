@@ -5,11 +5,13 @@ A program that monitors Prometheus metrics and executes actions when thresholds 
 ## Features
 
 - Monitor any Prometheus metric
-- Configurable thresholds with duration requirements
-- Plugin system for custom actions
+- Configurable soft and hard thresholds with duration requirements
+- Plugin system for custom actions with automatic validation
+- Selective plugin loading - only specified plugins are loaded
 - Built-in logging and file creation plugins
 - Configurable polling interval and backoff periods
-- Leader election mechanism for running multiple replicas at the same time with a single action outcome.
+- Leader election mechanism for running multiple replicas at the same time with a single action outcome
+- Fail-fast configuration validation at startup
 
 ## Quick Start with Just
 
@@ -224,3 +226,8 @@ Monitor AWS EFS burst credits and automatically generate I/O activity to increas
 ## Creating Custom Plugins
 
 See the [plugins README](plugins/README.md) for information on creating custom plugins.
+
+**Important Notes:**
+- Plugins must implement the `ValidateConfig()` method to validate configuration at startup
+- Only plugins specified in `SOFT_THRESHOLD_PLUGIN` or `HARD_THRESHOLD_PLUGIN` are loaded
+- The application will fail fast with clear error messages if plugin configuration is invalid
