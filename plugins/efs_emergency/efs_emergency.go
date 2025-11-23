@@ -130,6 +130,21 @@ func (p *EFSEmergencyPlugin) Name() string {
 	return "efs_emergency"
 }
 
+// ValidateConfig implements the ActionPlugin interface
+func (p *EFSEmergencyPlugin) ValidateConfig() error {
+	// At least one of filesystem ID or metric label must be configured
+	if p.fileSystemId == "" && p.metricLabelName == "" {
+		return fmt.Errorf("at least one of EFS_FILE_SYSTEM_ID or EFS_FILE_SYSTEM_PROMETHEUS_LABEL must be configured")
+	}
+	
+	// AWS client must be initialized
+	if p.client == nil {
+		return fmt.Errorf("AWS client not initialized - check AWS credentials and configuration")
+	}
+	
+	return nil
+}
+
 // Plugin is the exported plugin symbol
 var Plugin EFSEmergencyPlugin
 

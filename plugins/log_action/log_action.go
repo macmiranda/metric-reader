@@ -26,5 +26,11 @@ func (p *LogActionPlugin) Name() string {
 	return "log_action"
 }
 
+// ValidateConfig implements the ActionPlugin interface
+func (p *LogActionPlugin) ValidateConfig() error {
+	// Log action plugin has no required configuration
+	return nil
+}
+
 // Plugin is the exported plugin symbol
 var Plugin LogActionPlugin

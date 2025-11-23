@@ -53,6 +53,21 @@ func (p *FileActionPlugin) Name() string {
 	return "file_action"
 }
 
+// ValidateConfig implements the ActionPlugin interface
+func (p *FileActionPlugin) ValidateConfig() error {
+	// Check that output directory is configured
+	if p.outputDir == "" {
+		return fmt.Errorf("FILE_ACTION_DIR is required but not set")
+	}
+	
+	// Check that file size is valid
+	if p.fileSize <= 0 {
+		return fmt.Errorf("FILE_ACTION_SIZE must be greater than 0, got %d", p.fileSize)
+	}
+	
+	return nil
+}
+
 // Plugin is the exported plugin symbol
 var Plugin FileActionPlugin
 

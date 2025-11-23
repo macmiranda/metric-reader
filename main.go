@@ -187,15 +187,24 @@ func main() {
 		log.Fatal().Err(err).Str("MISSING_VALUE_BEHAVIOR", config.MissingValueBehavior).Msg("invalid MISSING_VALUE_BEHAVIOR value")
 	}
 
-	// Get plugin directory from config
+	// Determine which plugins are needed
+	requiredPlugins := make(map[string]bool)
+	if config.SoftThresholdPlugin != "" {
+		requiredPlugins[config.SoftThresholdPlugin] = true
+	}
+	if config.HardThresholdPlugin != "" {
+		requiredPlugins[config.HardThresholdPlugin] = true
+	}
+
+	// Get plugin directory from config and load only required plugins
 	pluginDir := config.PluginDir
-	if pluginDir != "" {
-		if err := LoadPluginsFromDirectory(pluginDir); err != nil {
-			log.Error().Err(err).Msg("failed to load plugins")
+	if pluginDir != "" && len(requiredPlugins) > 0 {
+		if err := LoadRequiredPlugins(pluginDir, requiredPlugins); err != nil {
+			log.Fatal().Err(err).Msg("failed to load required plugins")
 		}
 	}
 
-	// Assign plugins to thresholds
+	// Assign plugins to thresholds and validate configuration
 	if thresholdCfg != nil {
 		validateThresholdPlugin(config.SoftThresholdPlugin, thresholdCfg.softThreshold, "SOFT")
 		validateThresholdPlugin(config.HardThresholdPlugin, thresholdCfg.hardThreshold, "HARD")

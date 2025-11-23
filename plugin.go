@@ -17,6 +17,9 @@ type ActionPlugin interface {
 	Execute(ctx context.Context, metricName string, value float64, threshold string, duration time.Duration) error
 	// Name returns the name of the plugin
 	Name() string
+	// ValidateConfig validates that all required configuration for the plugin is present
+	// Returns an error if configuration is invalid or missing required values
+	ValidateConfig() error
 }
 
 // PluginRegistry holds all registered plugins
@@ -68,6 +71,52 @@ func LoadPluginsFromDirectory(dir string) error {
 
 		RegisterPlugin(plugin)
 		log.Info().Str("plugin", plugin.Name()).Msg("plugin loaded successfully")
+	}
+
+	return nil
+}
+
+// LoadRequiredPlugins loads only the specified plugins from a directory and validates their configuration
+func LoadRequiredPlugins(dir string, requiredPlugins map[string]bool) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("failed to read plugin directory: %v", err)
+	}
+
+	loadedPlugins := make(map[string]bool)
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".so") {
+			continue
+		}
+
+		pluginPath := fmt.Sprintf("%s/%s", dir, entry.Name())
+		plugin, err := LoadPlugin(pluginPath)
+		if err != nil {
+			log.Error().Err(err).Str("plugin", entry.Name()).Msg("failed to load plugin")
+			continue
+		}
+
+		// Only register and validate if this plugin is required
+		if requiredPlugins[plugin.Name()] {
+			// Validate plugin configuration before registering
+			if err := plugin.ValidateConfig(); err != nil {
+				return fmt.Errorf("plugin '%s' configuration validation failed: %v", plugin.Name(), err)
+			}
+
+			RegisterPlugin(plugin)
+			loadedPlugins[plugin.Name()] = true
+			log.Info().Str("plugin", plugin.Name()).Msg("plugin loaded and validated successfully")
+		} else {
+			log.Debug().Str("plugin", plugin.Name()).Msg("plugin skipped - not required")
+		}
+	}
+
+	// Check that all required plugins were found and loaded
+	for pluginName := range requiredPlugins {
+		if !loadedPlugins[pluginName] {
+			return fmt.Errorf("required plugin '%s' not found in directory '%s'", pluginName, dir)
+		}
 	}
 
 	return nil
