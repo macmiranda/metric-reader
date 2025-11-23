@@ -324,3 +324,11 @@ See the [plugins README](plugins/README.md) for information on creating custom p
 - Plugins must implement the `ValidateConfig()` method to validate configuration at startup
 - Only plugins specified in `SOFT_THRESHOLD_PLUGIN` or `HARD_THRESHOLD_PLUGIN` are loaded
 - The application will fail fast with clear error messages if plugin configuration is invalid
+
+## Contributing
+
+When adding new features:
+- **Always update README.md** with user-facing documentation
+- **Always update .github/copilot-instructions.md** with implementation details
+- Update config.toml.example with new configuration options
+- Add tests for new functionality

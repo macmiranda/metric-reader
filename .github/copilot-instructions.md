@@ -223,10 +223,10 @@ go mod verify      # Verify dependencies
    - Reference issue numbers when applicable
   
 5. **Documentation**
-   - Update the README.md when a new feature is added to the reader.
-   - Every plugin should have its own README.md explaining how to implement it, and use it (e.g. configuration options).
-   - Update the copilot-instructions.md with new features, and ideas for improvement.
-   - Other agents may be used with the same repo so leave instructions for them in AGENTS.md as well.
+   - **Always update README.md** when adding new features to the reader
+   - **Always update .github/copilot-instructions.md** with new features and implementation details
+   - Every plugin should have its own README.md explaining how to implement it, and use it (e.g. configuration options)
+   - Update config.toml.example with new configuration sections
 
 ## Common Tasks
 
@@ -300,6 +300,45 @@ go test -v ./...                    # Verify changes
    - Check metric name and label filters
    - Review Prometheus query warnings in logs
    - Increase `LOG_LEVEL=debug` for more details
+
+## Threshold Configuration
+
+### New Structure (v2 - Nested Sections)
+
+Use separate `[soft]` and `[hard]` sections in `config.toml` with independent timing:
+
+```toml
+threshold_operator = "greater_than"
+
+[soft]
+threshold = 80.0
+plugin = "log_action"
+duration = "30s"
+backoff_delay = "1m"
+
+[hard]
+threshold = 100.0
+plugin = "file_action"
+duration = "30s"
+backoff_delay = "1m"
+```
+
+Each section: `threshold`, `plugin`, `duration`, `backoff_delay`
+
+### Legacy Structure (v1 - Backward Compatible)
+
+```toml
+soft_threshold = 80.0
+hard_threshold = 100.0
+soft_threshold_plugin = "log_action"
+hard_threshold_plugin = "file_action"
+threshold_duration = "30s"  # Shared
+backoff_delay = "1m"        # Shared
+```
+
+Environment variables: `SOFT_THRESHOLD`, `SOFT_DURATION`, `SOFT_BACKOFF_DELAY`, `HARD_THRESHOLD`, `HARD_DURATION`, `HARD_BACKOFF_DELAY`. Legacy: `THRESHOLD_DURATION`, `BACKOFF_DELAY` (deprecated).
+
+Config migration is automatic. Both structures work. New structure allows independent timing per threshold.
 
 ## Additional Resources
 
