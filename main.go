@@ -31,9 +31,9 @@ const (
 type thresholdState string
 
 const (
-	stateNotBreached          thresholdState = "NotBreached"
-	stateSoftThresholdActive  thresholdState = "SoftThresholdActive"
-	stateHardThresholdActive  thresholdState = "HardThresholdActive"
+	stateNotBreached         thresholdState = "NotBreached"
+	stateSoftThresholdActive thresholdState = "SoftThresholdActive"
+	stateHardThresholdActive thresholdState = "HardThresholdActive"
 )
 
 // stateData holds the data associated with the current state
@@ -121,26 +121,26 @@ func processThresholdStateMachine(
 	query string,
 ) {
 	now := time.Now()
-	
+
 	// Check if thresholds are crossed
 	softCrossed := false
 	hardCrossed := false
-	
+
 	if thresholdCfg.softThreshold != nil {
 		softCrossed = isThresholdCrossed(thresholdCfg.operator, value, thresholdCfg.softThreshold.value)
 	}
-	
+
 	if thresholdCfg.hardThreshold != nil {
 		hardCrossed = isThresholdCrossed(thresholdCfg.operator, value, thresholdCfg.hardThreshold.value)
 	}
-	
+
 	log.Debug().
 		Str("current_state", string(state.currentState)).
 		Bool("soft_crossed", softCrossed).
 		Bool("hard_crossed", hardCrossed).
 		Float64("value", value).
 		Msg("evaluating threshold state machine")
-	
+
 	// State machine transitions
 	switch state.currentState {
 	case stateNotBreached:
@@ -153,7 +153,7 @@ func processThresholdStateMachine(
 					Msg("in soft threshold backoff period")
 				return
 			}
-			
+
 			// Start timing the threshold crossing
 			if state.softThresholdStartTime.IsZero() {
 				state.softThresholdStartTime = now
@@ -167,7 +167,7 @@ func processThresholdStateMachine(
 				// Duration exceeded, transition to SoftThresholdActive
 				oldState := state.currentState
 				state.currentState = stateSoftThresholdActive
-				
+
 				log.Info().
 					Str("previous_state", string(oldState)).
 					Str("new_state", string(state.currentState)).
@@ -175,16 +175,16 @@ func processThresholdStateMachine(
 					Float64("soft_threshold", thresholdCfg.softThreshold.value).
 					Dur("duration", now.Sub(state.softThresholdStartTime)).
 					Msg("state transition: entering soft threshold active state")
-				
+
 				// Execute soft threshold plugin
 				if thresholdCfg.softThreshold.plugin != nil && IsLeader() {
 					thresholdStr := formatThresholdString(thresholdCfg.operator, thresholdCfg.softThreshold.value)
-					
+
 					log.Debug().
 						Str("plugin", thresholdCfg.softThreshold.plugin.Name()).
 						Str("state", string(state.currentState)).
 						Msg("executing soft threshold plugin")
-					
+
 					if err := thresholdCfg.softThreshold.plugin.Execute(context.Background(), metricName, value, thresholdStr, now.Sub(state.softThresholdStartTime)); err != nil {
 						log.Error().
 							Err(err).
@@ -196,7 +196,7 @@ func processThresholdStateMachine(
 							Str("plugin", thresholdCfg.softThreshold.plugin.Name()).
 							Str("state", string(state.currentState)).
 							Msg("soft threshold plugin executed successfully")
-						
+
 						// Set backoff period after successful action
 						if softBackoffDelay > 0 {
 							state.softBackoffUntil = now.Add(softBackoffDelay)
@@ -215,14 +215,14 @@ func processThresholdStateMachine(
 				Msg("soft threshold no longer crossed before duration elapsed, resetting timer")
 			state.softThresholdStartTime = time.Time{}
 		}
-		
+
 	case stateSoftThresholdActive:
 		// Transition: SoftThresholdActive -> NotBreached (when threshold no longer crossed)
 		if !softCrossed {
 			oldState := state.currentState
 			state.currentState = stateNotBreached
 			state.softThresholdStartTime = time.Time{}
-			
+
 			log.Info().
 				Str("previous_state", string(oldState)).
 				Str("new_state", string(state.currentState)).
@@ -231,7 +231,7 @@ func processThresholdStateMachine(
 				Msg("state transition: threshold no longer crossed, returning to not breached")
 			return
 		}
-		
+
 		// Transition: SoftThresholdActive -> HardThresholdActive (when hard threshold crossed for duration)
 		if hardCrossed && thresholdCfg.hardThreshold != nil {
 			// Check if we're in backoff period
@@ -241,7 +241,7 @@ func processThresholdStateMachine(
 					Msg("in hard threshold backoff period")
 				return
 			}
-			
+
 			// Start timing the hard threshold crossing
 			if state.hardThresholdStartTime.IsZero() {
 				state.hardThresholdStartTime = now
@@ -255,7 +255,7 @@ func processThresholdStateMachine(
 				// Duration exceeded, transition to HardThresholdActive
 				oldState := state.currentState
 				state.currentState = stateHardThresholdActive
-				
+
 				log.Info().
 					Str("previous_state", string(oldState)).
 					Str("new_state", string(state.currentState)).
@@ -263,16 +263,16 @@ func processThresholdStateMachine(
 					Float64("hard_threshold", thresholdCfg.hardThreshold.value).
 					Dur("duration", now.Sub(state.hardThresholdStartTime)).
 					Msg("state transition: entering hard threshold active state")
-				
+
 				// Execute hard threshold plugin
 				if thresholdCfg.hardThreshold.plugin != nil && IsLeader() {
 					thresholdStr := formatThresholdString(thresholdCfg.operator, thresholdCfg.hardThreshold.value)
-					
+
 					log.Debug().
 						Str("plugin", thresholdCfg.hardThreshold.plugin.Name()).
 						Str("state", string(state.currentState)).
 						Msg("executing hard threshold plugin")
-					
+
 					if err := thresholdCfg.hardThreshold.plugin.Execute(context.Background(), metricName, value, thresholdStr, now.Sub(state.hardThresholdStartTime)); err != nil {
 						log.Error().
 							Err(err).
@@ -284,7 +284,7 @@ func processThresholdStateMachine(
 							Str("plugin", thresholdCfg.hardThreshold.plugin.Name()).
 							Str("state", string(state.currentState)).
 							Msg("hard threshold plugin executed successfully")
-						
+
 						// Set backoff period after successful action
 						if hardBackoffDelay > 0 {
 							state.hardBackoffUntil = now.Add(hardBackoffDelay)
@@ -303,22 +303,22 @@ func processThresholdStateMachine(
 				Msg("hard threshold no longer crossed before duration elapsed, resetting timer")
 			state.hardThresholdStartTime = time.Time{}
 		}
-		
+
 		// Stay in SoftThresholdActive: Check if we can re-execute soft plugin after backoff
 		if softCrossed && thresholdCfg.softThreshold != nil {
 			if !state.softBackoffUntil.IsZero() && now.After(state.softBackoffUntil) {
 				// Backoff period has passed, can re-execute
 				log.Debug().
 					Msg("soft threshold backoff period expired, can re-execute plugin")
-				
+
 				if thresholdCfg.softThreshold.plugin != nil && IsLeader() {
 					thresholdStr := formatThresholdString(thresholdCfg.operator, thresholdCfg.softThreshold.value)
-					
+
 					log.Debug().
 						Str("plugin", thresholdCfg.softThreshold.plugin.Name()).
 						Str("state", string(state.currentState)).
 						Msg("re-executing soft threshold plugin after backoff")
-					
+
 					if err := thresholdCfg.softThreshold.plugin.Execute(context.Background(), metricName, value, thresholdStr, time.Duration(0)); err != nil {
 						log.Error().
 							Err(err).
@@ -330,7 +330,7 @@ func processThresholdStateMachine(
 							Str("plugin", thresholdCfg.softThreshold.plugin.Name()).
 							Str("state", string(state.currentState)).
 							Msg("soft threshold plugin re-executed successfully after backoff")
-						
+
 						// Reset backoff
 						if softBackoffDelay > 0 {
 							state.softBackoffUntil = now.Add(softBackoffDelay)
@@ -342,7 +342,7 @@ func processThresholdStateMachine(
 				}
 			}
 		}
-		
+
 	case stateHardThresholdActive:
 		// Transition: HardThresholdActive -> NotBreached (when threshold no longer crossed)
 		if !hardCrossed && !softCrossed {
@@ -350,7 +350,7 @@ func processThresholdStateMachine(
 			state.currentState = stateNotBreached
 			state.softThresholdStartTime = time.Time{}
 			state.hardThresholdStartTime = time.Time{}
-			
+
 			log.Info().
 				Str("previous_state", string(oldState)).
 				Str("new_state", string(state.currentState)).
@@ -358,7 +358,7 @@ func processThresholdStateMachine(
 				Msg("state transition: thresholds no longer crossed, returning to not breached")
 			return
 		}
-		
+
 		// If soft threshold is no longer crossed, return to NotBreached
 		// (hard threshold requires soft to be active first per the state machine)
 		if !softCrossed {
@@ -366,7 +366,7 @@ func processThresholdStateMachine(
 			state.currentState = stateNotBreached
 			state.softThresholdStartTime = time.Time{}
 			state.hardThresholdStartTime = time.Time{}
-			
+
 			log.Info().
 				Str("previous_state", string(oldState)).
 				Str("new_state", string(state.currentState)).
@@ -374,22 +374,22 @@ func processThresholdStateMachine(
 				Msg("state transition: soft threshold no longer crossed, returning to not breached")
 			return
 		}
-		
+
 		// Stay in HardThresholdActive: Check if we can re-execute hard plugin after backoff
 		if hardCrossed && thresholdCfg.hardThreshold != nil {
 			if !state.hardBackoffUntil.IsZero() && now.After(state.hardBackoffUntil) {
 				// Backoff period has passed, can re-execute
 				log.Debug().
 					Msg("hard threshold backoff period expired, can re-execute plugin")
-				
+
 				if thresholdCfg.hardThreshold.plugin != nil && IsLeader() {
 					thresholdStr := formatThresholdString(thresholdCfg.operator, thresholdCfg.hardThreshold.value)
-					
+
 					log.Debug().
 						Str("plugin", thresholdCfg.hardThreshold.plugin.Name()).
 						Str("state", string(state.currentState)).
 						Msg("re-executing hard threshold plugin after backoff")
-					
+
 					if err := thresholdCfg.hardThreshold.plugin.Execute(context.Background(), metricName, value, thresholdStr, time.Duration(0)); err != nil {
 						log.Error().
 							Err(err).
@@ -401,7 +401,7 @@ func processThresholdStateMachine(
 							Str("plugin", thresholdCfg.hardThreshold.plugin.Name()).
 							Str("state", string(state.currentState)).
 							Msg("hard threshold plugin re-executed successfully after backoff")
-						
+
 						// Reset backoff
 						if hardBackoffDelay > 0 {
 							state.hardBackoffUntil = now.Add(hardBackoffDelay)
@@ -581,11 +581,6 @@ func main() {
 	ticker := time.NewTicker(pollingInterval)
 	defer ticker.Stop()
 
-	log.Info().
-		Str("query", query).
-		Dur("polling_interval", pollingInterval).
-		Msg("starting metric reader")
-
 	// Initialize state machine
 	state := &stateData{
 		currentState: stateNotBreached,
@@ -673,7 +668,7 @@ func main() {
 
 						// For assume_breached, transition to active states respecting the state machine
 						now := time.Now()
-						
+
 						// If we're in NotBreached and soft threshold is configured, start soft threshold
 						if state.currentState == stateNotBreached && thresholdCfg.softThreshold != nil {
 							if state.softBackoffUntil.IsZero() || now.After(state.softBackoffUntil) {
@@ -681,20 +676,20 @@ func main() {
 								// Immediately transition to active state
 								oldState := state.currentState
 								state.currentState = stateSoftThresholdActive
-								
+
 								log.Info().
 									Str("previous_state", string(oldState)).
 									Str("new_state", string(state.currentState)).
 									Str("reason", "assume_breached").
 									Msg("state transition: assuming soft threshold breached due to missing data")
-								
+
 								// Execute soft plugin
 								if thresholdCfg.softThreshold.plugin != nil && IsLeader() {
 									thresholdStr := formatThresholdString(thresholdCfg.operator, thresholdCfg.softThreshold.value)
 									log.Debug().
 										Str("plugin", thresholdCfg.softThreshold.plugin.Name()).
 										Msg("executing soft threshold plugin due to assume_breached")
-									
+
 									if err := thresholdCfg.softThreshold.plugin.Execute(ctx, metricName, 0, thresholdStr, time.Duration(0)); err != nil {
 										log.Error().
 											Err(err).
@@ -722,20 +717,20 @@ func main() {
 								state.hardThresholdStartTime = now
 								oldState := state.currentState
 								state.currentState = stateHardThresholdActive
-								
+
 								log.Info().
 									Str("previous_state", string(oldState)).
 									Str("new_state", string(state.currentState)).
 									Str("reason", "assume_breached").
 									Msg("state transition: assuming hard threshold breached due to missing data")
-								
+
 								// Execute hard plugin
 								if thresholdCfg.hardThreshold.plugin != nil && IsLeader() {
 									thresholdStr := formatThresholdString(thresholdCfg.operator, thresholdCfg.hardThreshold.value)
 									log.Debug().
 										Str("plugin", thresholdCfg.hardThreshold.plugin.Name()).
 										Msg("executing hard threshold plugin due to assume_breached")
-									
+
 									if err := thresholdCfg.hardThreshold.plugin.Execute(ctx, metricName, 0, thresholdStr, time.Duration(0)); err != nil {
 										log.Error().
 											Err(err).
