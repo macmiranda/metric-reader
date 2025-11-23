@@ -165,21 +165,6 @@ func init() {
 		prometheusEndpoint = "http://prometheus:9090"
 	}
 
-	// Validate configuration
-	if fileSystemId == "" && metricLabelName == "" {
-		// Don't fail during tests or when the plugin is not being used
-		log.Warn().Msg("Neither EFS_FILE_SYSTEM_ID nor EFS_FILE_SYSTEM_PROMETHEUS_LABEL configured - plugin will fail if executed")
-		Plugin = EFSEmergencyPlugin{
-			fileSystemId:      "",
-			metricLabelName:   "",
-			region:            "",
-			client:            nil,
-			prometheusAPI:     nil,
-			prometheusEnabled: false,
-		}
-		return
-	}
-
 	// Get AWS region from environment (optional, will use default if not set)
 	region := os.Getenv("AWS_REGION")
 
