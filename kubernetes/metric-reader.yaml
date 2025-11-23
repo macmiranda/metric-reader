@@ -18,11 +18,19 @@ data:
 
     # Threshold configuration
     threshold_operator = "greater_than"
-    soft_threshold = 0.0
-    hard_threshold = 0.5
-    soft_threshold_plugin = "log_action"
-    hard_threshold_plugin = "file_action"
-    threshold_duration = "30s"
+
+    # Soft threshold configuration
+    [soft]
+    threshold = 0.0
+    plugin = "log_action"
+    duration = "30s"
+    backoff_delay = "1m0s"
+
+    # Hard threshold configuration
+    [hard]
+    threshold = 0.5
+    plugin = "file_action"
+    duration = "30s"
     backoff_delay = "1m0s"
 
     # Polling configuration
@@ -41,9 +49,9 @@ data:
     # leader_election_lock_namespace = "custom-namespace"
 
     # Plugin-specific configuration
-    # File Action Plugin
-    file_action_dir = "/tmp/metric-files"
-    file_action_size = 1048576
+    [plugins.file_action]
+    dir = "/tmp/metric-files"
+    size = 1048576
 ---
 apiVersion: apps/v1
 kind: Deployment
