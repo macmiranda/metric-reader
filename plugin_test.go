@@ -111,7 +111,7 @@ func TestFileActionPluginValidation(t *testing.T) {
 	// Reload the plugin by creating a new config (simulating plugin init)
 	// Note: In real scenario, plugin would be loaded from .so file
 	// Here we're just testing the validation logic conceptually
-	
+
 	// We can't easily test plugin.go loading without building .so files,
 	// but we can test that the config structure works
 	config, err := LoadConfig()

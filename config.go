@@ -111,18 +111,18 @@ func LoadConfig() (*Config, error) {
 	v.BindEnv("metric_name", "METRIC_NAME")
 	v.BindEnv("label_filters", "LABEL_FILTERS")
 	v.BindEnv("threshold_operator", "THRESHOLD_OPERATOR")
-	
+
 	// Threshold configuration
 	v.BindEnv("soft.threshold", "SOFT_THRESHOLD")
 	v.BindEnv("soft.plugin", "SOFT_PLUGIN")
 	v.BindEnv("soft.duration", "SOFT_DURATION")
 	v.BindEnv("soft.backoff_delay", "SOFT_BACKOFF_DELAY")
-	
+
 	v.BindEnv("hard.threshold", "HARD_THRESHOLD")
 	v.BindEnv("hard.plugin", "HARD_PLUGIN")
 	v.BindEnv("hard.duration", "HARD_DURATION")
 	v.BindEnv("hard.backoff_delay", "HARD_BACKOFF_DELAY")
-	
+
 	v.BindEnv("polling_interval", "POLLING_INTERVAL")
 	v.BindEnv("prometheus_endpoint", "PROMETHEUS_ENDPOINT")
 	v.BindEnv("plugin_dir", "PLUGIN_DIR")

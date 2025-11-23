@@ -93,7 +93,7 @@ func LoadRequiredPlugins(dir string, requiredPlugins map[string]bool) error {
 
 		// Extract plugin name from filename (remove .so extension)
 		pluginName := strings.TrimSuffix(entry.Name(), ".so")
-		
+
 		// Only load the plugin if it's required
 		if !requiredPlugins[pluginName] {
 			log.Debug().Str("plugin", pluginName).Msg("plugin skipped - not required")

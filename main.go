@@ -121,12 +121,12 @@ func processThresholdStateMachine(
 	query string,
 ) {
 	now := time.Now()
-	
+
 	// Only check thresholds relevant to the current state to avoid unnecessary processing
 	// This ensures we only process viable state transitions
 	softCrossed := false
 	hardCrossed := false
-	
+
 	// State machine transitions
 	switch state.currentState {
 	case stateNotBreached:
@@ -134,13 +134,13 @@ func processThresholdStateMachine(
 		if thresholdCfg.softThreshold != nil {
 			softCrossed = isThresholdCrossed(thresholdCfg.operator, value, thresholdCfg.softThreshold.value)
 		}
-		
+
 		log.Debug().
 			Str("current_state", string(state.currentState)).
 			Bool("soft_crossed", softCrossed).
 			Float64("value", value).
 			Msg("evaluating threshold state machine")
-		
+
 		// Transition: NotBreached -> SoftThresholdActive (when soft threshold crossed for duration)
 		if softCrossed && thresholdCfg.softThreshold != nil {
 			// Check if we're in backoff period
@@ -221,14 +221,14 @@ func processThresholdStateMachine(
 		if thresholdCfg.hardThreshold != nil {
 			hardCrossed = isThresholdCrossed(thresholdCfg.operator, value, thresholdCfg.hardThreshold.value)
 		}
-		
+
 		log.Debug().
 			Str("current_state", string(state.currentState)).
 			Bool("soft_crossed", softCrossed).
 			Bool("hard_crossed", hardCrossed).
 			Float64("value", value).
 			Msg("evaluating threshold state machine")
-		
+
 		// Transition: SoftThresholdActive -> NotBreached (when threshold no longer crossed)
 		if !softCrossed {
 			oldState := state.currentState
@@ -364,14 +364,14 @@ func processThresholdStateMachine(
 		if thresholdCfg.hardThreshold != nil {
 			hardCrossed = isThresholdCrossed(thresholdCfg.operator, value, thresholdCfg.hardThreshold.value)
 		}
-		
+
 		log.Debug().
 			Str("current_state", string(state.currentState)).
 			Bool("soft_crossed", softCrossed).
 			Bool("hard_crossed", hardCrossed).
 			Float64("value", value).
 			Msg("evaluating threshold state machine")
-		
+
 		// Transition: HardThresholdActive -> NotBreached (when threshold no longer crossed)
 		if !hardCrossed && !softCrossed {
 			oldState := state.currentState
@@ -626,7 +626,7 @@ func main() {
 		if !IsLeader() {
 			continue
 		}
-		
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		result, warnings, err := v1api.Query(ctx, query, time.Now())
 		cancel()

@@ -84,6 +84,7 @@ just kind-down         # Delete Kind cluster
 - Handle errors explicitly; avoid ignoring errors
 - Use context for cancellation and timeouts
 - Prefer descriptive variable names over abbreviations
+- Format code with `go fmt` before committing
 
 ### Logging Standards
 - Use structured logging with `zerolog`

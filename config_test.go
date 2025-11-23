@@ -140,7 +140,7 @@ func TestNestedTOMLConfig(t *testing.T) {
 
 	// Create a temporary directory for the test
 	tmpDir := t.TempDir()
-	
+
 	// Create a config file with nested structure
 	configContent := `log_level = "debug"
 metric_name = "test_metric"
@@ -154,21 +154,21 @@ size = 5242880
 file_system_id = "fs-nested-test"
 aws_region = "eu-west-1"
 `
-	
+
 	configPath := tmpDir + "/config.toml"
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
-	
+
 	// Change to temp directory so config file is found
 	os.Chdir(tmpDir)
-	
+
 	// Load config
 	config, err := LoadConfig()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
-	
+
 	// Verify nested structure is loaded
 	if config.Plugins.FileAction.Dir != "/test/nested/path" {
 		t.Errorf("Expected nested plugins.file_action.dir '/test/nested/path', got %q", config.Plugins.FileAction.Dir)
@@ -216,7 +216,7 @@ func TestNestedThresholdConfig(t *testing.T) {
 
 	// Create a temporary directory for the test
 	tmpDir := t.TempDir()
-	
+
 	// Create a config file with new nested threshold structure
 	configContent := `log_level = "debug"
 metric_name = "test_metric"
@@ -234,21 +234,21 @@ plugin = "file_action"
 duration = "45s"
 backoff_delay = "2m"
 `
-	
+
 	configPath := tmpDir + "/config.toml"
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
-	
+
 	// Change to temp directory so config file is found
 	os.Chdir(tmpDir)
-	
+
 	// Load config
 	config, err := LoadConfig()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
-	
+
 	// Verify soft threshold section
 	if config.Soft == nil {
 		t.Fatal("Expected Soft section to be set, got nil")
@@ -265,7 +265,7 @@ backoff_delay = "2m"
 	if config.Soft.BackoffDelay.Seconds() != 60 {
 		t.Errorf("Expected soft.backoff_delay 1m, got %v", config.Soft.BackoffDelay)
 	}
-	
+
 	// Verify hard threshold section
 	if config.Hard == nil {
 		t.Fatal("Expected Hard section to be set, got nil")
@@ -294,13 +294,13 @@ func TestEnvironmentVariableThresholdConfig(t *testing.T) {
 
 	// Save original env vars and set test values
 	thresholdEnvVars := map[string]string{
-		"SOFT_THRESHOLD":      "85.5",
-		"SOFT_DURATION":       "35s",
-		"SOFT_BACKOFF_DELAY":  "90s",
-		"HARD_THRESHOLD":      "95.5",
-		"HARD_DURATION":       "40s",
-		"HARD_BACKOFF_DELAY":  "120s",
-		"THRESHOLD_OPERATOR":  "less_than",
+		"SOFT_THRESHOLD":     "85.5",
+		"SOFT_DURATION":      "35s",
+		"SOFT_BACKOFF_DELAY": "90s",
+		"HARD_THRESHOLD":     "95.5",
+		"HARD_DURATION":      "40s",
+		"HARD_BACKOFF_DELAY": "120s",
+		"THRESHOLD_OPERATOR": "less_than",
 	}
 	savedEnvs := make(map[string]string)
 	for key := range thresholdEnvVars {
@@ -315,7 +315,7 @@ func TestEnvironmentVariableThresholdConfig(t *testing.T) {
 			}
 		}
 	}()
-	
+
 	// Set test env vars
 	for key, value := range thresholdEnvVars {
 		os.Setenv(key, value)
@@ -324,13 +324,13 @@ func TestEnvironmentVariableThresholdConfig(t *testing.T) {
 	// Create a temporary directory without a config file
 	tmpDir := t.TempDir()
 	os.Chdir(tmpDir)
-	
+
 	// Load config (should use env vars)
 	config, err := LoadConfig()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
-	
+
 	// Verify threshold values from environment
 	if config.Soft == nil {
 		t.Fatal("Expected Soft section from env vars, got nil")
