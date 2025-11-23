@@ -126,10 +126,22 @@ type ActionPlugin interface {
 5. Build with `-buildmode=plugin`
 
 ### Plugin Configuration
-- Use environment variables for plugin settings
-- Prefix variables with plugin name (e.g., `FILE_ACTION_DIR`)
+- **New preferred method**: Use nested TOML sections `[plugins.<plugin_name>]` in config files
+- **Backward compatible**: Environment variables still work (prefix with plugin name, e.g., `FILE_ACTION_DIR`)
+- The config structure automatically syncs between nested TOML and flat environment variables
 - Provide sensible defaults
-- Document all configuration options
+- Document all configuration options in both TOML and environment variable formats
+
+Example config file structure:
+```toml
+[plugins.file_action]
+dir = "/tmp/metric-files"
+size = 1048576
+
+[plugins.efs_emergency]
+file_system_id = "fs-123456"
+aws_region = "us-east-1"
+```
 
 ### Plugin Best Practices
 - Use the provided context for cancellation
@@ -159,9 +171,17 @@ type ActionPlugin interface {
 
 ### Plugin-specific Variables
 
+Plugin settings can be configured via:
+1. **Nested TOML sections** (recommended): `[plugins.<plugin_name>]` in config files
+2. **Environment variables**: Uppercase with plugin name prefix
+
 **File Action Plugin:**
-- `FILE_ACTION_DIR`: Output directory (default: `/tmp/metric-files`)
-- `FILE_ACTION_SIZE`: File size in bytes (default: `1048576` = 1MB)
+- TOML: `[plugins.file_action]` with `dir` and `size` fields
+- Env: `FILE_ACTION_DIR` (default: `/tmp/metric-files`), `FILE_ACTION_SIZE` (default: `1048576`)
+
+**EFS Emergency Plugin:**
+- TOML: `[plugins.efs_emergency]` with `file_system_id`, `file_system_prometheus_label`, `aws_region` fields
+- Env: `EFS_FILE_SYSTEM_ID`, `EFS_FILE_SYSTEM_PROMETHEUS_LABEL`, `AWS_REGION`
 
 ## Dependencies
 
@@ -216,8 +236,26 @@ go mod verify      # Verify dependencies
 2. Implement `ActionPlugin` interface
 3. Export `Plugin` variable
 4. Add build command to `Justfile`
-5. Document configuration in plugin README
-6. Update main README with plugin information
+5. **Add plugin config section to `Config` struct:**
+   - Add nested struct in `PluginConfig` for your plugin settings
+   - Update `LoadConfig()` to bind environment variables
+   - Add backward compatibility logic if needed
+6. Document configuration in plugin README (both TOML and env var formats)
+7. Update main README with plugin information
+8. Update `config.toml.example` with plugin configuration section
+
+Example adding a new plugin config:
+```go
+// In config.go PluginConfig struct:
+MyPlugin struct {
+    Setting1 string `mapstructure:"setting1"`
+    Setting2 int    `mapstructure:"setting2"`
+} `mapstructure:"my_plugin"`
+
+// In LoadConfig():
+v.BindEnv("plugins.my_plugin.setting1", "MY_PLUGIN_SETTING1")
+v.BindEnv("plugins.my_plugin.setting2", "MY_PLUGIN_SETTING2")
+```
 
 ### Modifying Metric Query Logic
 

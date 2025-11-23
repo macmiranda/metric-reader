@@ -9,6 +9,22 @@ import (
 	"github.com/spf13/viper"
 )
 
+// PluginConfig holds plugin-specific configuration
+type PluginConfig struct {
+	// File Action Plugin configuration
+	FileAction struct {
+		Dir  string `mapstructure:"dir"`
+		Size int64  `mapstructure:"size"`
+	} `mapstructure:"file_action"`
+
+	// EFS Emergency Plugin configuration
+	EFSEmergency struct {
+		FileSystemID              string `mapstructure:"file_system_id"`
+		FileSystemPrometheusLabel string `mapstructure:"file_system_prometheus_label"`
+		AWSRegion                 string `mapstructure:"aws_region"`
+	} `mapstructure:"efs_emergency"`
+}
+
 // Config holds all configuration for the application
 type Config struct {
 	// Logging
@@ -44,14 +60,51 @@ type Config struct {
 	// Missing value behavior
 	MissingValueBehavior string `mapstructure:"missing_value_behavior"`
 
-	// Plugin-specific configuration
-	FileActionDir  string `mapstructure:"file_action_dir"`
-	FileActionSize int64  `mapstructure:"file_action_size"`
+	// Plugin-specific configuration (new nested structure)
+	Plugins PluginConfig `mapstructure:"plugins"`
 
-	// EFS Emergency Plugin configuration
+	// Deprecated: Plugin-specific configuration (backward compatibility)
+	FileActionDir                string `mapstructure:"file_action_dir"`
+	FileActionSize               int64  `mapstructure:"file_action_size"`
 	EFSFileSystemID              string `mapstructure:"efs_file_system_id"`
 	EFSFileSystemPrometheusLabel string `mapstructure:"efs_file_system_prometheus_label"`
 	AWSRegion                    string `mapstructure:"aws_region"`
+}
+
+// syncStringWithDefault syncs a string field between nested and flat config with a default value
+// If one has the default and the other doesn't, copy from the non-default one
+// If both differ and nested is not default, prefer nested (new structure)
+func syncStringWithDefault(nested *string, flat *string, defaultValue string) {
+	if *nested == defaultValue && *flat != defaultValue {
+		*nested = *flat
+	} else if *flat == defaultValue && *nested != defaultValue {
+		*flat = *nested
+	} else if *flat != *nested {
+		*flat = *nested
+	}
+}
+
+// syncInt64WithDefault syncs an int64 field between nested and flat config with a default value
+func syncInt64WithDefault(nested *int64, flat *int64, defaultValue int64) {
+	if *nested == defaultValue && *flat != defaultValue {
+		*nested = *flat
+	} else if *flat == defaultValue && *nested != defaultValue {
+		*flat = *nested
+	} else if *flat != *nested {
+		*flat = *nested
+	}
+}
+
+// syncStringField syncs a string field between nested and flat config (no defaults)
+// Syncs non-empty values, preferring nested when both are set
+func syncStringField(nested *string, flat *string) {
+	if *nested == "" && *flat != "" {
+		*nested = *flat
+	} else if *flat == "" && *nested != "" {
+		*flat = *nested
+	} else if *flat != *nested && *nested != "" {
+		*flat = *nested
+	}
 }
 
 // LoadConfig loads configuration from file and environment variables
@@ -59,7 +112,7 @@ type Config struct {
 func LoadConfig() (*Config, error) {
 	v := viper.New()
 
-	// Set defaults
+	// Set defaults for main configuration
 	v.SetDefault("log_level", "info")
 	v.SetDefault("polling_interval", "1s")
 	v.SetDefault("prometheus_endpoint", "http://prometheus:9090")
@@ -69,6 +122,12 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("leader_election_lock_name", "metric-reader-leader")
 	v.SetDefault("leader_election_lock_namespace", "")
 	v.SetDefault("missing_value_behavior", "zero")
+
+	// Set defaults for plugin configuration (new nested structure)
+	v.SetDefault("plugins.file_action.dir", "/tmp/metric-files")
+	v.SetDefault("plugins.file_action.size", 1024*1024) // 1MB
+
+	// Set defaults for backward compatibility (deprecated flat structure)
 	v.SetDefault("file_action_dir", "/tmp/metric-files")
 	v.SetDefault("file_action_size", 1024*1024) // 1MB
 
@@ -115,17 +174,42 @@ func LoadConfig() (*Config, error) {
 	v.BindEnv("leader_election_lock_name", "LEADER_ELECTION_LOCK_NAME")
 	v.BindEnv("leader_election_lock_namespace", "LEADER_ELECTION_LOCK_NAMESPACE")
 	v.BindEnv("missing_value_behavior", "MISSING_VALUE_BEHAVIOR")
+
+	// Bind plugin-specific environment variables to both old and new structures
+	// Note: The same environment variable names are used for both to maintain backward compatibility
+	// After unmarshaling, the sync helper functions will reconcile any differences between the two structures
+	
+	// Bind to old flat structure (backward compatibility)
 	v.BindEnv("file_action_dir", "FILE_ACTION_DIR")
 	v.BindEnv("file_action_size", "FILE_ACTION_SIZE")
 	v.BindEnv("efs_file_system_id", "EFS_FILE_SYSTEM_ID")
 	v.BindEnv("efs_file_system_prometheus_label", "EFS_FILE_SYSTEM_PROMETHEUS_LABEL")
 	v.BindEnv("aws_region", "AWS_REGION")
 
+	// Bind to new nested structure (same environment variable names)
+	v.BindEnv("plugins.file_action.dir", "FILE_ACTION_DIR")
+	v.BindEnv("plugins.file_action.size", "FILE_ACTION_SIZE")
+	v.BindEnv("plugins.efs_emergency.file_system_id", "EFS_FILE_SYSTEM_ID")
+	v.BindEnv("plugins.efs_emergency.file_system_prometheus_label", "EFS_FILE_SYSTEM_PROMETHEUS_LABEL")
+	v.BindEnv("plugins.efs_emergency.aws_region", "AWS_REGION")
+
 	// Parse config into struct
 	var config Config
 	if err := v.Unmarshal(&config); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
+
+	// Handle backward compatibility bidirectionally
+	// Sync string fields with defaults
+	syncStringWithDefault(&config.Plugins.FileAction.Dir, &config.FileActionDir, "/tmp/metric-files")
+	
+	// Sync int64 fields with defaults
+	syncInt64WithDefault(&config.Plugins.FileAction.Size, &config.FileActionSize, int64(1024*1024))
+	
+	// Sync string fields without defaults (just non-empty values)
+	syncStringField(&config.Plugins.EFSEmergency.FileSystemID, &config.EFSFileSystemID)
+	syncStringField(&config.Plugins.EFSEmergency.FileSystemPrometheusLabel, &config.EFSFileSystemPrometheusLabel)
+	syncStringField(&config.Plugins.EFSEmergency.AWSRegion, &config.AWSRegion)
 
 	return &config, nil
 }

@@ -69,11 +69,26 @@ Example `config.toml`:
 ```toml
 log_level = "info"
 metric_name = "up"
-threshold = ">0"
+threshold_operator = "greater_than"
+soft_threshold = 80.0
+hard_threshold = 100.0
+soft_threshold_plugin = "log_action"
+hard_threshold_plugin = "file_action"
 threshold_duration = "30s"
 polling_interval = "15s"
 prometheus_endpoint = "http://prometheus:9090"
+
+# Plugin-specific configuration in separate sections
+[plugins.file_action]
+dir = "/tmp/metric-files"
+size = 1048576  # 1MB
+
+[plugins.efs_emergency]
+# file_system_id = "fs-0123456789abcdef0"
+# aws_region = "us-east-1"
 ```
+
+**Note:** The new nested `[plugins.<plugin_name>]` sections are recommended for better organization. The old flat structure (e.g., `file_action_dir`) is still supported for backward compatibility.
 
 ### Environment Variables
 
@@ -113,7 +128,15 @@ When a Prometheus query returns no data, the behavior is controlled by `MISSING_
 
 Creates a file of configurable size when a metric threshold is exceeded.
 
-**Configuration:**
+**Configuration (via config file):**
+
+```toml
+[plugins.file_action]
+dir = "/tmp/metric-files"  # Directory where files will be created
+size = 1048576             # Size of files to create in bytes (1MB)
+```
+
+**Configuration (via environment variables):**
 
 - `FILE_ACTION_DIR`: Directory where files will be created (default: `/tmp/metric-files`)
 - `FILE_ACTION_SIZE`: Size of files to create in bytes (default: 1MB)
@@ -126,12 +149,20 @@ Logs threshold events with detailed information about the metric value and durat
 
 Switches an AWS EFS filesystem from bursting throughput mode to elastic throughput mode. Designed for emergency situations when EFS burst credits are depleted.
 
-**Configuration (via config file or environment variables):**
+**Configuration (via config file):**
 
-- `efs_file_system_id` / `EFS_FILE_SYSTEM_ID`: The EFS filesystem ID (static - optional if using label)
-- `efs_file_system_prometheus_label` / `EFS_FILE_SYSTEM_PROMETHEUS_LABEL`: Prometheus metric label name to extract filesystem ID from (optional if using static ID)
-- `aws_region` / `AWS_REGION`: AWS region where the filesystem is located (optional, auto-detected)
-- `prometheus_endpoint` / `PROMETHEUS_ENDPOINT`: Prometheus server URL (optional, default: `http://prometheus:9090`)
+```toml
+[plugins.efs_emergency]
+file_system_id = "fs-0123456789abcdef0"        # The EFS filesystem ID (static - optional if using label)
+file_system_prometheus_label = "file_system_id" # Prometheus metric label name (optional if using static ID)
+aws_region = "us-east-1"                        # AWS region (optional, auto-detected)
+```
+
+**Configuration (via environment variables):**
+
+- `EFS_FILE_SYSTEM_ID`: The EFS filesystem ID (static - optional if using label)
+- `EFS_FILE_SYSTEM_PROMETHEUS_LABEL`: Prometheus metric label name to extract filesystem ID from (optional if using static ID)
+- `AWS_REGION`: AWS region where the filesystem is located (optional, auto-detected)
 
 **Requirements:**
 
