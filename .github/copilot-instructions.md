@@ -232,7 +232,7 @@ backoff_delay = "1m"
 ## Troubleshooting
 
 - **Plugin not loading:** Verify Go version match, check `PLUGIN_DIR`, review logs
-- **Leader election fails:** Check RBAC, verify `POD_NAMESPACE` set via Downward API
+- **Leader election fails:** Check RBAC
 - **Metrics not read:** Verify Prometheus endpoint, check metric name/labels, use `LOG_LEVEL=debug`
 
 ## Additional Resources
