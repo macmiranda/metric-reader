@@ -168,22 +168,11 @@ When making changes, update relevant documentation:
 **Workflow:**
 1. Create feature branch
 2. Make focused, incremental changes
-3. Test: `just run-tests` or `go test -v ./...`
+3. Test: see **Testing** section for details
 4. Build to verify compilation
 5. Run `go fmt` and `go vet`
-6. Clear commit messages (reference issue numbers)
-
-**Testing:**
-- Unit tests exist (see `*_test.go` files)
-- Manual testing: Docker Compose or Kind cluster
-- Verify plugin loading and leader election
-
-**Documentation (Required):**
-- **README.md** - user-facing features
-- **.github/copilot-instructions.md** - implementation details
-- **deployment files** - `docker-compose.yml`, `kubernetes/metric-reader.yaml` when config changes
-- **config.toml.example** - new configuration sections
-- **Plugin README.md** - each plugin needs its own README
+6. Update documentation: see **Documentation** section
+7. Clear commit messages (reference issue numbers)
 
 **Adding a Plugin:**
 1. Create `plugins/my_plugin/` directory
