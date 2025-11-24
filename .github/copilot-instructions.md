@@ -21,7 +21,7 @@
 - `github.com/spf13/viper` - Configuration management
 - `github.com/aws/aws-sdk-go-v2` - AWS SDK (for EFS plugin)
 - `k8s.io/client-go` - Kubernetes client for leader election
-- Go 1.23+ (as specified in go.mod)
+- Go 1.23.0 (as specified in go.mod)
 
 ## Build & Test
 
