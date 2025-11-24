@@ -119,15 +119,18 @@ size = 1048576
 1. Create `plugins/my_plugin/` directory
 2. Implement `ActionPlugin` interface
 3. Add to `Justfile` build commands
-4. Add config struct in `config.go`:
+4. Add config struct in `config.go` (inside `PluginConfig` struct):
 ```go
+// In PluginConfig struct
 MyPlugin struct {
     Setting1 string `mapstructure:"setting1"`
+    Setting2 int    `mapstructure:"setting2"`
 } `mapstructure:"my_plugin"`
 ```
 5. Bind environment variables in `LoadConfig()`:
 ```go
 v.BindEnv("plugins.my_plugin.setting1", "MY_PLUGIN_SETTING1")
+v.BindEnv("plugins.my_plugin.setting2", "MY_PLUGIN_SETTING2")
 ```
 6. Document in plugin README and main README
 7. Update `config.toml.example`
