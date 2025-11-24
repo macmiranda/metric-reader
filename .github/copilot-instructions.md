@@ -1,119 +1,69 @@
 # Copilot Instructions for metric-reader
 
-## Project Overview
+**Project:** Lightweight Go application that monitors Prometheus metrics and executes configurable actions when thresholds are exceeded. Runs as a Kubernetes sidecar or standalone service.
 
-Metric-reader is a lightweight Go application that monitors Prometheus metrics and executes configurable actions when thresholds are exceeded for a specified duration. It's designed to run as a sidecar container in Kubernetes Pods but can also run as a standalone service.
+**Status:** Alpha (pre-1.0) - breaking changes acceptable, focus on simplicity over backward compatibility.
 
-**Alpha Phase:** This project is in alpha (pre-1.0). Breaking changes are acceptable and backward compatibility is not required. Focus on simplicity and clean design over maintaining old APIs.
+## Features
 
-### Key Capabilities
-- Monitor any Prometheus metric with configurable thresholds
-- Execute custom actions via a plugin system
-- Support for leader election when running multiple replicas
-- Configurable polling intervals and backoff periods
-- Built-in logging and file creation plugins
+- Monitor any Prometheus metric with soft/hard thresholds
+- Plugin system for custom actions (`.so` files with `ActionPlugin` interface)
+- State machine for threshold transitions (NotBreached → SoftThresholdActive → HardThresholdActive)
+- Leader election for multiple replicas (Kubernetes coordination leases)
+- Built-in plugins: `log_action`, `file_action`, `efs_emergency`
+- Configuration via TOML files or environment variables
+- Selective plugin loading - only specified plugins are loaded
 
-## Architecture
+## Key Dependencies
 
-### Core Components
+- `github.com/prometheus/client_golang` - Prometheus client
+- `github.com/rs/zerolog` - Structured logging
+- `github.com/spf13/viper` - Configuration management
+- `github.com/aws/aws-sdk-go-v2` - AWS SDK (for EFS plugin)
+- `k8s.io/client-go` - Kubernetes client for leader election
+- Go 1.23+ (as specified in go.mod)
 
-1. **Main Application** (`main.go`)
-   - Prometheus metric polling and threshold checking
-   - Environment-based configuration
-   - Plugin execution coordination
-   - Uses `github.com/rs/zerolog` for structured logging
-
-2. **Plugin System** (`plugin.go`)
-   - Dynamic plugin loading from `.so` files
-   - Plugin registry for managing available plugins
-   - `ActionPlugin` interface that all plugins must implement
-
-3. **Leader Election** (`leader_election.go`)
-   - Kubernetes-based leader election using coordination leases
-   - Prevents duplicate actions when running multiple replicas
-   - Automatic fallback to single-instance mode outside Kubernetes
-
-4. **Built-in Plugins**
-   - `file_action`: Creates files of configurable size
-   - `log_action`: Logs threshold events with detailed information
-   - `efs_emergency`: Switches AWS EFS from bursting to elastic throughput mode
-
-## Build and Test
-
-### Prerequisites
-- Go 1.21+ (as specified in go.mod)
-- [Just](https://github.com/casey/just) command runner (optional but recommended)
-
-### Build Commands
+## Build & Test
 
 ```bash
 # Using Just (recommended)
-just build              # Build the main application
+just build              # Build main application
 just build-plugins      # Build plugin .so files
 just run-tests         # Run all tests
 
-# Using go commands directly
+# Direct Go commands
 go build -o metric-reader .
-go build -buildmode=plugin -o plugins/file_action.so plugins/file_action/file_action.go
-go build -buildmode=plugin -o plugins/log_action.so plugins/log_action/log_action.go
+go build -buildmode=plugin -o plugins/<name>.so plugins/<name>/<name>.go
 go test -v ./...
 ```
 
-### Docker
+## Coding Style
 
-```bash
-just build-image       # Build Docker image
-just compose-up        # Start services with Docker Compose
-just compose-down      # Stop Docker Compose services
-```
-
-### Kubernetes
-
-```bash
-just kind-up           # Create Kind cluster
-just k8s-apply         # Deploy to cluster
-just k8s-delete        # Remove from cluster
-just kind-down         # Delete Kind cluster
-```
-
-## Code Conventions
-
-### General Guidelines
+**General:**
 - Follow standard Go conventions and idioms
-- Use `zerolog` for all logging (already imported as `log`)
-- Handle errors explicitly; avoid ignoring errors
+- Use `zerolog` for all logging (imported as `log`)
+- Handle errors explicitly with context: `fmt.Errorf("description: %v", err)`
 - Use context for cancellation and timeouts
-- Prefer descriptive variable names over abbreviations
-- Format code with `go fmt` before committing
+- Descriptive variable names over abbreviations
+- Run `go fmt` before committing
 
-### Logging Standards
-- Use structured logging with `zerolog`
-- Log levels:
-  - `Debug`: Detailed diagnostic information
-  - `Info`: Normal operational messages
-  - `Warn`: Warning conditions that should be reviewed
-  - `Error`: Error conditions that prevent normal operation
-  - `Fatal`: Critical errors that require program termination
-
-Example:
+**Logging:**
 ```go
 log.Info().
     Str("metric_name", metricName).
     Float64("value", value).
     Msg("processing metric")
 ```
+Levels: `Debug` (diagnostics), `Info` (operational), `Warn` (review needed), `Error` (prevents operation), `Fatal` (program termination)
 
-### Error Handling
-- Return errors with context using `fmt.Errorf("description: %v", err)`
-- Log errors before returning them when appropriate
+**Error Handling:**
+- Return errors with context
+- Log before returning when appropriate
 - Use `log.Fatal()` only for startup configuration errors
 
 ## Plugin Development
 
-### Plugin Interface
-
-All plugins must implement:
-
+**Interface:**
 ```go
 type ActionPlugin interface {
     Execute(ctx context.Context, metricName string, value float64, threshold string, duration time.Duration) error
@@ -121,197 +71,132 @@ type ActionPlugin interface {
 }
 ```
 
-### Plugin Structure
-
+**Requirements:**
 1. Package must be `main`
-2. Implement the `ActionPlugin` interface
-3. Export a variable named `Plugin` of your plugin type
-4. Use `init()` for configuration and setup
-5. Build with `-buildmode=plugin`
+2. Export variable `Plugin` of your plugin type
+3. Build with `-buildmode=plugin`
 
-### Plugin Configuration
-- **New preferred method**: Use nested TOML sections `[plugins.<plugin_name>]` in config files
-- **Backward compatible**: Environment variables still work (prefix with plugin name, e.g., `FILE_ACTION_DIR`)
-- The config structure automatically syncs between nested TOML and flat environment variables
-- Provide sensible defaults
-- Document all configuration options in both TOML and environment variable formats
-
-Example config file structure:
+**Configuration:**
+- Preferred: TOML `[plugins.<name>]` sections
+- Backward compatible: Environment variables with plugin name prefix
+- Example:
 ```toml
 [plugins.file_action]
 dir = "/tmp/metric-files"
 size = 1048576
-
-[plugins.efs_emergency]
-file_system_id = "fs-123456"
-aws_region = "us-east-1"
 ```
 
-### Plugin Best Practices
-- Use the provided context for cancellation
-- Return meaningful errors from `Execute()`
-- Use `zerolog` for consistent logging
-- Test plugins thoroughly before deployment
+**Best Practices:**
+- Use provided context for cancellation
+- Return meaningful errors
+- Use `zerolog` for logging
+- Provide sensible defaults
 - Handle missing configuration gracefully
 
-## Environment Variables
+## Testing
 
-### Required Variables
-- `METRIC_NAME`: Prometheus metric to monitor
+**Test Structure:**
+- Unit tests: `*_test.go` files alongside source code
+- State machine tests: `state_machine_test.go` (comprehensive coverage)
+- Plugin tests: `plugin_test.go`, per-plugin test files
+- Config tests: `config_test.go` (TOML and env var validation)
 
-### Optional Variables
-- `LABEL_FILTERS`: Label filters for metric query (e.g., `job="node-exporter"`)
-- `THRESHOLD`: Threshold with operator (e.g., `>100`, `<50`)
-- `THRESHOLD_DURATION`: Duration threshold must be exceeded (default: `0s`)
-- `POLLING_INTERVAL`: Metric check frequency (default: `1s`)
-- `BACKOFF_DELAY`: Delay between actions (default: `0s`)
-- `PROMETHEUS_ENDPOINT`: Prometheus URL (default: `http://prometheus:9090`)
-- `PLUGIN_DIR`: Directory containing plugin `.so` files
-- `ACTION_PLUGIN`: Plugin name to execute
-- `LOG_LEVEL`: Logging level - `debug`, `info`, `warn`, `error` (default: `info`)
-- `LEADER_ELECTION_ENABLED`: Enable leader election (default: `true`)
-- `LEADER_ELECTION_LOCK_NAME`: Lock name for leader election (default: `metric-reader-leader`)
-- `POD_NAMESPACE`: Kubernetes namespace (injected via Downward API)
-
-### Plugin-specific Variables
-
-Plugin settings can be configured via:
-1. **Nested TOML sections** (recommended): `[plugins.<plugin_name>]` in config files
-2. **Environment variables**: Uppercase with plugin name prefix
-
-**File Action Plugin:**
-- TOML: `[plugins.file_action]` with `dir` and `size` fields
-- Env: `FILE_ACTION_DIR` (default: `/tmp/metric-files`), `FILE_ACTION_SIZE` (default: `1048576`)
-
-**EFS Emergency Plugin:**
-- TOML: `[plugins.efs_emergency]` with `file_system_id`, `file_system_prometheus_label`, `aws_region` fields
-- Env: `EFS_FILE_SYSTEM_ID`, `EFS_FILE_SYSTEM_PROMETHEUS_LABEL`, `AWS_REGION`
-
-## Dependencies
-
-Key dependencies:
-- `github.com/prometheus/client_golang`: Prometheus client
-- `github.com/rs/zerolog`: Structured logging
-- `k8s.io/client-go`: Kubernetes client for leader election
-- `k8s.io/apimachinery`: Kubernetes API types
-
-Use `go mod` for dependency management:
+**Running Tests:**
 ```bash
-go mod download    # Download dependencies
-go mod tidy        # Clean up dependencies
-go mod verify      # Verify dependencies
+just run-tests           # Run all tests
+go test -v ./...         # Direct go test command
+go test -v -run TestName # Run specific test
 ```
 
-## Development Workflow
+**Test Coverage:**
+- State machine transitions have extensive coverage
+- Plugin loading and validation tests exist
+- Configuration parsing tests for TOML and env vars
+- Manual testing recommended for:
+  - Docker Compose deployments
+  - Kubernetes with leader election
+  - Plugin execution in real environments
 
-1. **Making Changes**
-   - Create a feature branch
-   - Make focused, incremental changes
-   - Test locally using `just run-tests` or `go test -v ./...`
-   - Build to verify compilation
+**Writing Tests:**
+- Follow existing test patterns in `*_test.go` files
+- Use table-driven tests for multiple scenarios
+- Mock external dependencies (Prometheus, Kubernetes)
+- Test both success and error paths
+- Verify log output when appropriate
 
-2. **Testing**
-   - Currently no unit tests exist (test infrastructure to be added)
-   - Test manually using Docker Compose or Kind cluster
-   - Verify plugin loading and execution
-   - Test leader election behavior with multiple replicas
+## Documentation
 
-3. **Code Style**
-   - Run `go fmt` before committing
-   - Use `go vet` to check for common issues
-   - Follow Go standard library patterns
+**Required Documentation Updates:**
 
-4. **Commits**
-   - Write clear, descriptive commit messages
-   - Keep commits focused on a single change
-   - Reference issue numbers when applicable
-  
-5. **Documentation**
-   - **Always update README.md** when adding new features to the reader
-   - **Always update .github/copilot-instructions.md** with new features and implementation details
-   - **Always update deployment files** when changing configuration structure:
-     - `docker-compose.yml` - update environment variables
-     - `kubernetes/metric-reader.yaml` - update ConfigMap with new config structure
-   - Every plugin should have its own README.md explaining how to implement it, and use it (e.g. configuration options)
-   - Update config.toml.example with new configuration sections
+When making changes, update relevant documentation:
 
-## Common Tasks
+1. **README.md** - User-facing documentation
+   - Feature descriptions and usage examples
+   - Configuration options and examples
+   - Quick start guides
+   - Deployment instructions
 
-### Adding a New Plugin
+2. **.github/copilot-instructions.md** - Developer documentation
+   - Implementation details and architecture
+   - Coding conventions and patterns
+   - Development workflows
+   - Internal APIs and structures
 
-1. Create directory: `plugins/my_plugin/`
+3. **config.toml.example** - Configuration template
+   - Add new configuration sections
+   - Include comments explaining options
+   - Provide sensible example values
+
+4. **Deployment files** - When config structure changes
+   - `docker-compose.yml` - environment variables
+   - `kubernetes/metric-reader.yaml` - ConfigMap structure
+
+5. **Plugin README.md** - Each plugin needs its own
+   - Plugin purpose and use cases
+   - Configuration options (TOML and env vars)
+   - IAM permissions (if applicable)
+   - Usage examples
+
+**Documentation Style:**
+- Clear, concise language
+- Code examples for complex concepts
+- Both TOML and environment variable formats
+- Include defaults and required vs optional
+
+## How to Contribute
+
+**Workflow:**
+1. Create feature branch
+2. Make focused, incremental changes
+3. Test: see **Testing** section for details
+4. Build to verify compilation
+5. Run `go fmt` and `go vet`
+6. Update documentation: see **Documentation** section
+7. Clear commit messages (reference issue numbers)
+
+**Adding a Plugin:**
+1. Create `plugins/my_plugin/` directory
 2. Implement `ActionPlugin` interface
-3. Export `Plugin` variable
-4. Add build command to `Justfile`
-5. **Add plugin config section to `Config` struct:**
-   - Add nested struct in `PluginConfig` for your plugin settings
-   - Update `LoadConfig()` to bind environment variables
-   - Add backward compatibility logic if needed
-6. Document configuration in plugin README (both TOML and env var formats)
-7. Update main README with plugin information
-8. Update `config.toml.example` with plugin configuration section
-
-Example adding a new plugin config:
+3. Add to `Justfile` build commands
+4. Add config struct in `config.go` (inside `PluginConfig` struct):
 ```go
-// In config.go PluginConfig struct:
+// In PluginConfig struct
 MyPlugin struct {
     Setting1 string `mapstructure:"setting1"`
     Setting2 int    `mapstructure:"setting2"`
 } `mapstructure:"my_plugin"`
-
-// In LoadConfig():
+```
+5. Bind environment variables in `LoadConfig()`:
+```go
 v.BindEnv("plugins.my_plugin.setting1", "MY_PLUGIN_SETTING1")
 v.BindEnv("plugins.my_plugin.setting2", "MY_PLUGIN_SETTING2")
 ```
+6. Document in plugin README and main README
+7. Update `config.toml.example`
 
-### Modifying Metric Query Logic
+## Configuration
 
-- All query logic is in `main.go`
-- Threshold parsing is in `parseThreshold()` function
-- Threshold checking happens in the main polling loop
-- Consider leader election when executing actions
-
-### Updating Dependencies
-
-```bash
-go get -u github.com/package/name  # Update specific package
-go mod tidy                         # Clean up go.mod
-go test -v ./...                    # Verify changes
-```
-
-## Security Considerations
-
-- Plugins are loaded from trusted directories only
-- Use context timeouts for Prometheus queries
-- Leader election prevents duplicate actions
-- Validate all environment variable inputs
-- Handle Kubernetes RBAC for leader election
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Plugin not loading**
-   - Verify plugin built with same Go version as main app
-   - Check plugin is in correct directory
-   - Ensure `PLUGIN_DIR` is set correctly
-   - Review logs for plugin loading errors
-
-2. **Leader election not working**
-   - Verify in-cluster Kubernetes configuration
-   - Check RBAC permissions for lease resources
-   - Ensure `POD_NAMESPACE` is set (via Downward API)
-
-3. **Metrics not being read**
-   - Verify Prometheus endpoint is accessible
-   - Check metric name and label filters
-   - Review Prometheus query warnings in logs
-   - Increase `LOG_LEVEL=debug` for more details
-
-## Threshold Configuration
-
-Use separate `[soft]` and `[hard]` sections in `config.toml` with independent timing:
-
+**Threshold Structure (Breaking Change in v0.x):**
 ```toml
 threshold_operator = "greater_than"
 
@@ -328,60 +213,30 @@ duration = "30s"
 backoff_delay = "1m"
 ```
 
-Each section has: `threshold`, `plugin`, `duration`, `backoff_delay`
+**Environment Variables:**
+- **Required:** `METRIC_NAME`
+- **Optional:** `PROMETHEUS_ENDPOINT` (default: `http://prometheus:9090`), `LOG_LEVEL` (default: `info`)
+- **Thresholds:** `SOFT_THRESHOLD`, `SOFT_PLUGIN`, `SOFT_DURATION`, `SOFT_BACKOFF_DELAY`, `HARD_THRESHOLD`, `HARD_PLUGIN`, `HARD_DURATION`, `HARD_BACKOFF_DELAY`
+- **Leader election:** `LEADER_ELECTION_ENABLED` (default: `true`), `LEADER_ELECTION_LOCK_NAME`
+- **Missing values:** `MISSING_VALUE_BEHAVIOR` (`last_value`, `zero`, `assume_breached`)
 
-Environment variables: `SOFT_THRESHOLD`, `SOFT_PLUGIN`, `SOFT_DURATION`, `SOFT_BACKOFF_DELAY`, `HARD_THRESHOLD`, `HARD_PLUGIN`, `HARD_DURATION`, `HARD_BACKOFF_DELAY`
+## Improvements & Future Work
 
-## EFS Emergency Plugin
+- Expand test coverage beyond state machine tests
+- Add more built-in plugins
+- Configuration validation improvements
+- Metrics exposition for monitoring the monitor
+- Support for multiple metrics in a single instance
+- Plugin hot-reloading without restart
 
-The `efs_emergency` plugin switches an AWS EFS filesystem from bursting to elastic throughput mode when thresholds are exceeded. This is designed for emergency situations when burst credits are depleted.
+## Troubleshooting
 
-### Key Features
-- Switches EFS from bursting to elastic throughput mode
-- Supports static filesystem ID or dynamic ID from Prometheus metric labels
-- Works with AWS IAM roles (IRSA on EKS), instance profiles, or access keys
-- Auto-detects AWS region if not configured
-
-### Configuration
-
-Via config file:
-```toml
-[plugins.efs_emergency]
-file_system_id = "fs-0123456789abcdef0"  # Static ID (optional if using label)
-file_system_prometheus_label = "file_system_id"  # Dynamic from metric (optional if using static)
-aws_region = "us-east-1"  # Optional, auto-detected if not set
-```
-
-Via environment variables:
-- `EFS_FILE_SYSTEM_ID`: Static filesystem ID
-- `EFS_FILE_SYSTEM_PROMETHEUS_LABEL`: Name of Prometheus label containing filesystem ID
-- `AWS_REGION`: AWS region (optional)
-
-At least one of `EFS_FILE_SYSTEM_ID` or `EFS_FILE_SYSTEM_PROMETHEUS_LABEL` must be set.
-
-### IAM Permissions Required
-
-```json
-{
-  "Effect": "Allow",
-  "Action": [
-    "elasticfilesystem:UpdateFileSystem",
-    "elasticfilesystem:DescribeFileSystems"
-  ],
-  "Resource": "arn:aws:elasticfilesystem:REGION:ACCOUNT_ID:file-system/FILE_SYSTEM_ID"
-}
-```
-
-### Use Cases
-- Emergency response when EFS burst credits are depleted
-- Monitoring `aws_efs_burst_credit_balance` from CloudWatch via YACE
-- Automatic failover to prevent filesystem performance degradation
-
-See `plugins/efs_emergency/README.md` for detailed setup instructions including IRSA configuration.
+- **Plugin not loading:** Verify Go version match, check `PLUGIN_DIR`, review logs
+- **Leader election fails:** Check RBAC
+- **Metrics not read:** Verify Prometheus endpoint, check metric name/labels, use `LOG_LEVEL=debug`
 
 ## Additional Resources
 
 - [Plugin Development Guide](../plugins/README.md)
 - [Prometheus Query Basics](https://prometheus.io/docs/prometheus/latest/querying/basics/)
-- [Kubernetes Leader Election](https://pkg.go.dev/k8s.io/client-go/tools/leaderelection)
 - [Zerolog Documentation](https://github.com/rs/zerolog)
