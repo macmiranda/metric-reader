@@ -93,6 +93,76 @@ size = 1048576
 - Provide sensible defaults
 - Handle missing configuration gracefully
 
+## Testing
+
+**Test Structure:**
+- Unit tests: `*_test.go` files alongside source code
+- State machine tests: `state_machine_test.go` (comprehensive coverage)
+- Plugin tests: `plugin_test.go`, per-plugin test files
+- Config tests: `config_test.go` (TOML and env var validation)
+
+**Running Tests:**
+```bash
+just run-tests           # Run all tests
+go test -v ./...         # Direct go test command
+go test -v -run TestName # Run specific test
+```
+
+**Test Coverage:**
+- State machine transitions have extensive coverage
+- Plugin loading and validation tests exist
+- Configuration parsing tests for TOML and env vars
+- Manual testing recommended for:
+  - Docker Compose deployments
+  - Kubernetes with leader election
+  - Plugin execution in real environments
+
+**Writing Tests:**
+- Follow existing test patterns in `*_test.go` files
+- Use table-driven tests for multiple scenarios
+- Mock external dependencies (Prometheus, Kubernetes)
+- Test both success and error paths
+- Verify log output when appropriate
+
+## Documentation
+
+**Required Documentation Updates:**
+
+When making changes, update relevant documentation:
+
+1. **README.md** - User-facing documentation
+   - Feature descriptions and usage examples
+   - Configuration options and examples
+   - Quick start guides
+   - Deployment instructions
+
+2. **.github/copilot-instructions.md** - Developer documentation
+   - Implementation details and architecture
+   - Coding conventions and patterns
+   - Development workflows
+   - Internal APIs and structures
+
+3. **config.toml.example** - Configuration template
+   - Add new configuration sections
+   - Include comments explaining options
+   - Provide sensible example values
+
+4. **Deployment files** - When config structure changes
+   - `docker-compose.yml` - environment variables
+   - `kubernetes/metric-reader.yaml` - ConfigMap structure
+
+5. **Plugin README.md** - Each plugin needs its own
+   - Plugin purpose and use cases
+   - Configuration options (TOML and env vars)
+   - IAM permissions (if applicable)
+   - Usage examples
+
+**Documentation Style:**
+- Clear, concise language
+- Code examples for complex concepts
+- Both TOML and environment variable formats
+- Include defaults and required vs optional
+
 ## How to Contribute
 
 **Workflow:**
