@@ -54,7 +54,7 @@ log.Info().
     Float64("value", value).
     Msg("processing metric")
 ```
-Levels: `Debug` (diagnostics), `Info` (operational), `Warn` (review needed), `Error` (prevents operation), `Fatal` (startup only)
+Levels: `Debug` (diagnostics), `Info` (operational), `Warn` (review needed), `Error` (prevents operation), `Fatal` (program termination)
 
 **Error Handling:**
 - Return errors with context
