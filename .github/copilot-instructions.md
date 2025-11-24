@@ -21,7 +21,7 @@
 - `github.com/spf13/viper` - Configuration management
 - `github.com/aws/aws-sdk-go-v2` - AWS SDK (for EFS plugin)
 - `k8s.io/client-go` - Kubernetes client for leader election
-- Go 1.23.0 (as specified in go.mod)
+- Go 1.23+ (as specified in go.mod)
 
 ## Build & Test
 
@@ -152,11 +152,11 @@ backoff_delay = "1m"
 ```
 
 **Environment Variables:**
-- Required: `METRIC_NAME`
-- Optional: `PROMETHEUS_ENDPOINT` (default: `http://prometheus:9090`), `LOG_LEVEL` (default: `info`)
-- Threshold: `SOFT_THRESHOLD`, `SOFT_PLUGIN`, `SOFT_DURATION`, `SOFT_BACKOFF_DELAY`, `HARD_THRESHOLD`, `HARD_PLUGIN`, `HARD_DURATION`, `HARD_BACKOFF_DELAY`
-- Leader election: `LEADER_ELECTION_ENABLED` (default: `true`), `LEADER_ELECTION_LOCK_NAME`
-- Missing values: `MISSING_VALUE_BEHAVIOR` (`last_value`, `zero`, `assume_breached`)
+- **Required:** `METRIC_NAME`
+- **Optional:** `PROMETHEUS_ENDPOINT` (default: `http://prometheus:9090`), `LOG_LEVEL` (default: `info`)
+- **Thresholds:** `SOFT_THRESHOLD`, `SOFT_PLUGIN`, `SOFT_DURATION`, `SOFT_BACKOFF_DELAY`, `HARD_THRESHOLD`, `HARD_PLUGIN`, `HARD_DURATION`, `HARD_BACKOFF_DELAY`
+- **Leader election:** `LEADER_ELECTION_ENABLED` (default: `true`), `LEADER_ELECTION_LOCK_NAME`
+- **Missing values:** `MISSING_VALUE_BEHAVIOR` (`last_value`, `zero`, `assume_breached`)
 
 ## Improvements & Future Work
 
@@ -169,9 +169,9 @@ backoff_delay = "1m"
 
 ## Troubleshooting
 
-**Plugin not loading:** Verify Go version match, check `PLUGIN_DIR`, review logs  
-**Leader election fails:** Check RBAC, verify `POD_NAMESPACE` set via Downward API  
-**Metrics not read:** Verify Prometheus endpoint, check metric name/labels, use `LOG_LEVEL=debug`
+- **Plugin not loading:** Verify Go version match, check `PLUGIN_DIR`, review logs
+- **Leader election fails:** Check RBAC, verify `POD_NAMESPACE` set via Downward API
+- **Metrics not read:** Verify Prometheus endpoint, check metric name/labels, use `LOG_LEVEL=debug`
 
 ## Additional Resources
 
