@@ -150,19 +150,19 @@ Example `config.toml`:
 
 ```toml
 log_level = "info"
-metric_name = "up"
+prometheus_query = "up"
 threshold_operator = "greater_than"
 polling_interval = "15s"
 prometheus_endpoint = "http://prometheus:9090"
 
-# Soft threshold configuration (new recommended structure)
+# Soft threshold configuration
 [soft]
 threshold = 80.0
 plugin = "log_action"
 duration = "30s"
 backoff_delay = "1m"
 
-# Hard threshold configuration (new recommended structure)
+# Hard threshold configuration
 [hard]
 threshold = 100.0
 plugin = "file_action"
@@ -179,7 +179,13 @@ size = 1048576  # 1MB
 # aws_region = "us-east-1"
 ```
 
-**Breaking Change (v0.x):** The configuration now requires `[soft]` and `[hard]` sections for threshold configuration. Each section has its own `threshold`, `plugin`, `duration`, and `backoff_delay` settings.
+## Breaking Changes (v0.x)
+
+| Change | Config file key (before) | Config file key (after) | Env var (before) | Env var (after) |
+|--------|--------------------------|-------------------------|------------------|-----------------|
+| Metric query | `metric_name` + `label_filters` | `prometheus_query` | `METRIC_NAME` + `LABEL_FILTERS` | `PROMETHEUS_QUERY` |
+| Soft threshold | `soft_threshold`, `soft_plugin` | `[soft]` → `threshold`, `plugin`, `duration`, `backoff_delay` | `SOFT_THRESHOLD`, `SOFT_PLUGIN` | `SOFT_THRESHOLD`, `SOFT_PLUGIN`, `SOFT_DURATION`, `SOFT_BACKOFF_DELAY` |
+| Hard threshold | `hard_threshold`, `hard_plugin` | `[hard]` → `threshold`, `plugin`, `duration`, `backoff_delay` | `HARD_THRESHOLD`, `HARD_PLUGIN` | `HARD_THRESHOLD`, `HARD_PLUGIN`, `HARD_DURATION`, `HARD_BACKOFF_DELAY` |
 
 ### Environment Variables
 
@@ -187,8 +193,7 @@ All configuration options can be set via environment variables using uppercase n
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `METRIC_NAME` | Name of the Prometheus metric to monitor | (required) |
-| `LABEL_FILTERS` | Label filters to apply to the metric query | (optional) |
+| `PROMETHEUS_QUERY` | Full PromQL expression to evaluate | (required) |
 | `THRESHOLD_OPERATOR` | Threshold operator: `greater_than` or `less_than` | (required with thresholds) |
 | `SOFT_THRESHOLD` | Soft threshold value (float) | (optional) |
 | `SOFT_PLUGIN` | Plugin to execute when soft threshold is exceeded | (optional) |
@@ -205,15 +210,15 @@ All configuration options can be set via environment variables using uppercase n
 | `LEADER_ELECTION_ENABLED` | Whether to enable leader election | true |
 | `LEADER_ELECTION_LOCK_NAME` | Name of the lock to use for leader election | metric-reader-leader |
 | `LEADER_ELECTION_LOCK_NAMESPACE` | Kubernetes namespace for leader election lock (uses pod's namespace if not set) | (optional) |
-| `MISSING_VALUE_BEHAVIOR` | Behavior when metric returns no data: `last_value`, `zero`, `assume_breached` | zero |
+| `MISSING_VALUE_BEHAVIOR` | Behavior when query returns no data: `last_value`, `zero`, `assume_breached` | zero |
 
 ### Missing Value Behavior
 
 When a Prometheus query returns no data, the behavior is controlled by `MISSING_VALUE_BEHAVIOR`:
 
-- **`last_value`**: Uses the last successfully retrieved metric value. If no previous value exists, threshold checks are skipped for that iteration.
-- **`zero`** (default): Treats the missing value as 0 and processes threshold checks normally.
-- **`assume_breached`**: Immediately marks all configured thresholds as crossed, starting the threshold duration timer. This is useful for detecting when a metric disappears entirely.
+- **`last_value`**: Uses the last successfully retrieved query value. If no previous value exists, threshold checks are skipped for that iteration.
+- **`zero`** (default): Treats the missing query result as 0 and processes threshold checks normally.
+- **`assume_breached`**: Immediately marks all configured thresholds as crossed, starting the threshold duration timer. This is useful for detecting when a query returns no results.
 
 ## Available Plugins
 

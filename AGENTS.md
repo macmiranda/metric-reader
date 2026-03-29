@@ -1,8 +1,60 @@
-# Copilot Instructions for metric-reader
+# Agent Instructions for metric-reader
 
 **Project:** Lightweight Go application that monitors Prometheus metrics and executes configurable actions when thresholds are exceeded. Runs as a Kubernetes sidecar or standalone service.
 
 **Status:** Alpha (pre-1.0) - breaking changes acceptable, focus on simplicity over backward compatibility.
+
+## Breaking Changes
+
+### Threshold configuration requires `[soft]` and `[hard]` sections
+
+The configuration now requires `[soft]` and `[hard]` sections for threshold configuration. Each section has its own `threshold`, `plugin`, `duration`, and `backoff_delay` settings.
+
+**Before:**
+```toml
+soft_threshold = 80.0
+soft_plugin = "log_action"
+hard_threshold = 100.0
+hard_plugin = "file_action"
+```
+
+**After:**
+```toml
+[soft]
+threshold = 80.0
+plugin = "log_action"
+duration = "30s"
+backoff_delay = "1m"
+
+[hard]
+threshold = 100.0
+plugin = "file_action"
+duration = "30s"
+backoff_delay = "1m"
+```
+
+### PROMETHEUS_QUERY replaces METRIC_NAME + LABEL_FILTERS
+
+The `METRIC_NAME` and `LABEL_FILTERS` environment variables (and their corresponding `metric_name` / `label_filters` config file keys) have been removed and replaced with a single `PROMETHEUS_QUERY` field.
+
+**Before:**
+```toml
+metric_name = "up"
+label_filters = 'job="prometheus",instance="localhost:9090"'
+```
+
+**After:**
+```toml
+prometheus_query = 'up{job="prometheus",instance="localhost:9090"}'
+```
+
+This change supports full PromQL expressions, including:
+- Simple metric names: `up`
+- Metric names with label filters: `up{job="prometheus"}`
+- Functions and operators: `rate(http_requests_total[5m])`
+- Aggregations: `avg(node_memory_MemAvailable_bytes) / avg(node_memory_MemTotal_bytes) * 100`
+
+The query result must be a scalar or single-element vector for threshold comparison to work correctly.
 
 ## Features
 
@@ -37,6 +89,33 @@ go build -buildmode=plugin -o plugins/<name>.so plugins/<name>/<name>.go
 go test -v ./...
 ```
 
+## End-to-End Tests
+
+The e2e test harness is defined in `.github/workflows/e2e-tests.yml` and can be run locally using the Just recipes below. It spins up a Kind (Kubernetes-in-Docker) cluster, loads the built image, deploys all resources, and validates the deployment.
+
+**Prerequisites:** Docker, Kind, kubectl, and Just must be installed.
+
+```bash
+# Full e2e test (mirrors the CI workflow)
+just e2e-test
+
+# Step-by-step (useful for debugging)
+just build-image          # Build Docker image
+just kind-up              # Create Kind cluster + load image + install metrics-server
+just k8s-apply            # Deploy metric-reader + Prometheus to the cluster
+just k8s-wait             # Wait for all pods to become Ready (120s timeout)
+just k8s-status           # Check pod status
+just k8s-logs             # Tail metric-reader logs
+just kind-down            # Tear down the Kind cluster
+```
+
+**CI workflow steps (`.github/workflows/e2e-tests.yml`):**
+1. Build application: `just build`
+2. Build plugins: `just build-plugins`
+3. Run e2e tests: `just e2e-test` (builds image, creates Kind cluster, deploys, waits, validates)
+4. On failure: prints metric-reader and Prometheus logs and deployment status
+5. Always: tears down the Kind cluster with `just kind-down`
+
 ## Coding Style
 
 **General:**
@@ -50,7 +129,7 @@ go test -v ./...
 **Logging:**
 ```go
 log.Info().
-    Str("metric_name", metricName).
+    Str("query", query).
     Float64("value", value).
     Msg("processing metric")
 ```
@@ -136,7 +215,7 @@ When making changes, update relevant documentation:
    - Quick start guides
    - Deployment instructions
 
-2. **.github/copilot-instructions.md** - Developer documentation
+2. **AGENTS.md** - Developer documentation
    - Implementation details and architecture
    - Coding conventions and patterns
    - Development workflows
@@ -214,7 +293,7 @@ backoff_delay = "1m"
 ```
 
 **Environment Variables:**
-- **Required:** `METRIC_NAME`
+- **Required:** `PROMETHEUS_QUERY`
 - **Optional:** `PROMETHEUS_ENDPOINT` (default: `http://prometheus:9090`), `LOG_LEVEL` (default: `info`)
 - **Thresholds:** `SOFT_THRESHOLD`, `SOFT_PLUGIN`, `SOFT_DURATION`, `SOFT_BACKOFF_DELAY`, `HARD_THRESHOLD`, `HARD_PLUGIN`, `HARD_DURATION`, `HARD_BACKOFF_DELAY`
 - **Leader election:** `LEADER_ELECTION_ENABLED` (default: `true`), `LEADER_ELECTION_LOCK_NAME`
@@ -233,10 +312,11 @@ backoff_delay = "1m"
 
 - **Plugin not loading:** Verify Go version match, check `PLUGIN_DIR`, review logs
 - **Leader election fails:** Check RBAC
-- **Metrics not read:** Verify Prometheus endpoint, check metric name/labels, use `LOG_LEVEL=debug`
+- **Metrics not read:** Verify Prometheus endpoint, check query and labels, use `LOG_LEVEL=debug`
 
 ## Additional Resources
 
-- [Plugin Development Guide](../plugins/README.md)
+- [Plugin Development Guide](plugins/README.md)
 - [Prometheus Query Basics](https://prometheus.io/docs/prometheus/latest/querying/basics/)
 - [Zerolog Documentation](https://github.com/rs/zerolog)
+

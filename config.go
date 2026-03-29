@@ -39,8 +39,7 @@ type Config struct {
 	LogLevel string `mapstructure:"log_level"`
 
 	// Metric configuration
-	MetricName   string `mapstructure:"metric_name"`
-	LabelFilters string `mapstructure:"label_filters"`
+	PrometheusQuery string `mapstructure:"prometheus_query"`
 
 	// Threshold configuration
 	ThresholdOperator string            `mapstructure:"threshold_operator"`
@@ -108,8 +107,7 @@ func LoadConfig() (*Config, error) {
 	v.AutomaticEnv()
 	// Bind each config key to its corresponding environment variable
 	v.BindEnv("log_level", "LOG_LEVEL")
-	v.BindEnv("metric_name", "METRIC_NAME")
-	v.BindEnv("label_filters", "LABEL_FILTERS")
+	v.BindEnv("prometheus_query", "PROMETHEUS_QUERY")
 	v.BindEnv("threshold_operator", "THRESHOLD_OPERATOR")
 
 	// Threshold configuration

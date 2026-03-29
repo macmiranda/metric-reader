@@ -117,7 +117,6 @@ func processThresholdStateMachine(
 	softBackoffDelay time.Duration,
 	hardDuration time.Duration,
 	hardBackoffDelay time.Duration,
-	metricName string,
 	query string,
 ) {
 	now := time.Now()
@@ -182,7 +181,7 @@ func processThresholdStateMachine(
 						Str("state", string(state.currentState)).
 						Msg("executing soft threshold plugin")
 
-					if err := thresholdCfg.softThreshold.plugin.Execute(context.Background(), metricName, value, thresholdStr, now.Sub(state.softThresholdStartTime)); err != nil {
+					if err := thresholdCfg.softThreshold.plugin.Execute(context.Background(), query, value, thresholdStr, now.Sub(state.softThresholdStartTime)); err != nil {
 						log.Error().
 							Err(err).
 							Str("plugin", thresholdCfg.softThreshold.plugin.Name()).
@@ -285,7 +284,7 @@ func processThresholdStateMachine(
 						Str("state", string(state.currentState)).
 						Msg("executing hard threshold plugin")
 
-					if err := thresholdCfg.hardThreshold.plugin.Execute(context.Background(), metricName, value, thresholdStr, now.Sub(state.hardThresholdStartTime)); err != nil {
+					if err := thresholdCfg.hardThreshold.plugin.Execute(context.Background(), query, value, thresholdStr, now.Sub(state.hardThresholdStartTime)); err != nil {
 						log.Error().
 							Err(err).
 							Str("plugin", thresholdCfg.hardThreshold.plugin.Name()).
@@ -331,7 +330,7 @@ func processThresholdStateMachine(
 						Str("state", string(state.currentState)).
 						Msg("re-executing soft threshold plugin after backoff")
 
-					if err := thresholdCfg.softThreshold.plugin.Execute(context.Background(), metricName, value, thresholdStr, time.Duration(0)); err != nil {
+					if err := thresholdCfg.softThreshold.plugin.Execute(context.Background(), query, value, thresholdStr, time.Duration(0)); err != nil {
 						log.Error().
 							Err(err).
 							Str("plugin", thresholdCfg.softThreshold.plugin.Name()).
@@ -418,7 +417,7 @@ func processThresholdStateMachine(
 						Str("state", string(state.currentState)).
 						Msg("re-executing hard threshold plugin after backoff")
 
-					if err := thresholdCfg.hardThreshold.plugin.Execute(context.Background(), metricName, value, thresholdStr, time.Duration(0)); err != nil {
+					if err := thresholdCfg.hardThreshold.plugin.Execute(context.Background(), query, value, thresholdStr, time.Duration(0)); err != nil {
 						log.Error().
 							Err(err).
 							Str("plugin", thresholdCfg.hardThreshold.plugin.Name()).
@@ -480,19 +479,10 @@ func main() {
 		log.Fatal().Str("LOG_LEVEL", config.LogLevel).Msg("invalid LOG_LEVEL value")
 	}
 
-	// Get metric name from config
-	metricName := config.MetricName
-	if metricName == "" {
-		log.Fatal().Msg("METRIC_NAME is required")
-	}
-
-	// Get label filters from config
-	labelFilters := config.LabelFilters
-	var query string
-	if labelFilters != "" {
-		query = fmt.Sprintf("%s{%s}", metricName, labelFilters)
-	} else {
-		query = metricName
+	// Get Prometheus query expression from config
+	query := config.PrometheusQuery
+	if query == "" {
+		log.Fatal().Msg("PROMETHEUS_QUERY is required")
 	}
 
 	// Get threshold configuration from config
@@ -569,10 +559,9 @@ func main() {
 	}
 
 	logEvent := log.Info().
-		Str("metric_name", metricName).
+		Str("prometheus_query", query).
 		Str("prometheus_endpoint", prometheusEndpoint).
 		Dur("polling_interval", pollingInterval).
-		Str("query", query).
 		Str("missing_value_behavior", string(missingValueBehavior))
 
 	if thresholdCfg != nil {
@@ -724,7 +713,7 @@ func main() {
 										Str("plugin", thresholdCfg.softThreshold.plugin.Name()).
 										Msg("executing soft threshold plugin due to assume_breached")
 
-									if err := thresholdCfg.softThreshold.plugin.Execute(ctx, metricName, 0, thresholdStr, time.Duration(0)); err != nil {
+									if err := thresholdCfg.softThreshold.plugin.Execute(ctx, query, 0, thresholdStr, time.Duration(0)); err != nil {
 										log.Error().
 											Err(err).
 											Str("plugin", thresholdCfg.softThreshold.plugin.Name()).
@@ -765,7 +754,7 @@ func main() {
 										Str("plugin", thresholdCfg.hardThreshold.plugin.Name()).
 										Msg("executing hard threshold plugin due to assume_breached")
 
-									if err := thresholdCfg.hardThreshold.plugin.Execute(ctx, metricName, 0, thresholdStr, time.Duration(0)); err != nil {
+									if err := thresholdCfg.hardThreshold.plugin.Execute(ctx, query, 0, thresholdStr, time.Duration(0)); err != nil {
 										log.Error().
 											Err(err).
 											Str("plugin", thresholdCfg.hardThreshold.plugin.Name()).
@@ -793,7 +782,7 @@ func main() {
 
 			// Process threshold configuration if set and we have a value to check
 			if valueFound && thresholdCfg != nil {
-				processThresholdStateMachine(state, thresholdCfg, value, softDuration, softBackoffDelay, hardDuration, hardBackoffDelay, metricName, query)
+				processThresholdStateMachine(state, thresholdCfg, value, softDuration, softBackoffDelay, hardDuration, hardBackoffDelay, query)
 			}
 		} else {
 			log.Error().
