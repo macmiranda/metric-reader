@@ -1,6 +1,6 @@
 # Agent Instructions for metric-reader
 
-This is **beta / alpha software (pre-1.0)**. Breaking changes are acceptable and backwards compatibility does not need to be maintained.
+This is **alpha (pre-1.0)** software. Breaking changes are acceptable and backwards compatibility does not need to be maintained.
 
 ## Breaking Changes
 
