@@ -179,12 +179,13 @@ size = 1048576  # 1MB
 # aws_region = "us-east-1"
 ```
 
-**Breaking Change (v0.x):** The configuration now requires `[soft]` and `[hard]` sections for threshold configuration. Each section has its own `threshold`, `plugin`, `duration`, and `backoff_delay` settings.
+## Breaking Changes (v0.x)
 
-**Breaking Change (v0.x):** The following variables have been replaced by a single `PROMETHEUS_QUERY` field that accepts any valid PromQL expression:
-
-- `METRIC_NAME`
-- `LABEL_FILTERS`
+| Change | Config file key (before) | Config file key (after) | Env var (before) | Env var (after) |
+|--------|--------------------------|-------------------------|------------------|-----------------|
+| Metric query | `metric_name` + `label_filters` | `prometheus_query` | `METRIC_NAME` + `LABEL_FILTERS` | `PROMETHEUS_QUERY` |
+| Soft threshold | `soft_threshold`, `soft_plugin` | `[soft]` → `threshold`, `plugin`, `duration`, `backoff_delay` | `SOFT_THRESHOLD`, `SOFT_PLUGIN` | `SOFT_THRESHOLD`, `SOFT_PLUGIN`, `SOFT_DURATION`, `SOFT_BACKOFF_DELAY` |
+| Hard threshold | `hard_threshold`, `hard_plugin` | `[hard]` → `threshold`, `plugin`, `duration`, `backoff_delay` | `HARD_THRESHOLD`, `HARD_PLUGIN` | `HARD_THRESHOLD`, `HARD_PLUGIN`, `HARD_DURATION`, `HARD_BACKOFF_DELAY` |
 
 ### Environment Variables
 
