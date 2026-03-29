@@ -179,7 +179,10 @@ size = 1048576  # 1MB
 # aws_region = "us-east-1"
 ```
 
-**Breaking Change (v0.x):** `METRIC_NAME` and `LABEL_FILTERS` have been replaced by a single `PROMETHEUS_QUERY` field that accepts any valid PromQL expression. This allows complex queries including label filters, functions, and operators.
+**Breaking Change (v0.x):** The following variables have been replaced by a single `PROMETHEUS_QUERY` field that accepts any valid PromQL expression:
+
+- `METRIC_NAME`
+- `LABEL_FILTERS`
 
 ### Environment Variables
 
