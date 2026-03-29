@@ -179,6 +179,8 @@ size = 1048576  # 1MB
 # aws_region = "us-east-1"
 ```
 
+**Breaking Change (v0.x):** The configuration now requires `[soft]` and `[hard]` sections for threshold configuration. Each section has its own `threshold`, `plugin`, `duration`, and `backoff_delay` settings.
+
 **Breaking Change (v0.x):** The following variables have been replaced by a single `PROMETHEUS_QUERY` field that accepts any valid PromQL expression:
 
 - `METRIC_NAME`
