@@ -13,8 +13,7 @@ data:
     log_level = "debug"
 
     # Metric configuration
-    metric_name = "up"
-    label_filters = ""
+    prometheus_query = "up"
 
     # Threshold configuration
     threshold_operator = "greater_than"
