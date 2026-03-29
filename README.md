@@ -150,19 +150,19 @@ Example `config.toml`:
 
 ```toml
 log_level = "info"
-metric_name = "up"
+prometheus_query = "up"
 threshold_operator = "greater_than"
 polling_interval = "15s"
 prometheus_endpoint = "http://prometheus:9090"
 
-# Soft threshold configuration (new recommended structure)
+# Soft threshold configuration
 [soft]
 threshold = 80.0
 plugin = "log_action"
 duration = "30s"
 backoff_delay = "1m"
 
-# Hard threshold configuration (new recommended structure)
+# Hard threshold configuration
 [hard]
 threshold = 100.0
 plugin = "file_action"
@@ -179,7 +179,7 @@ size = 1048576  # 1MB
 # aws_region = "us-east-1"
 ```
 
-**Breaking Change (v0.x):** The configuration now requires `[soft]` and `[hard]` sections for threshold configuration. Each section has its own `threshold`, `plugin`, `duration`, and `backoff_delay` settings.
+**Breaking Change (v0.x):** `METRIC_NAME` and `LABEL_FILTERS` have been replaced by a single `PROMETHEUS_QUERY` field that accepts any valid PromQL expression. This allows complex queries including label filters, functions, and operators.
 
 ### Environment Variables
 
@@ -187,8 +187,7 @@ All configuration options can be set via environment variables using uppercase n
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `METRIC_NAME` | Name of the Prometheus metric to monitor | (required) |
-| `LABEL_FILTERS` | Label filters to apply to the metric query | (optional) |
+| `PROMETHEUS_QUERY` | Full PromQL expression to evaluate | (required) |
 | `THRESHOLD_OPERATOR` | Threshold operator: `greater_than` or `less_than` | (required with thresholds) |
 | `SOFT_THRESHOLD` | Soft threshold value (float) | (optional) |
 | `SOFT_PLUGIN` | Plugin to execute when soft threshold is exceeded | (optional) |

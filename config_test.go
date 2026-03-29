@@ -143,7 +143,7 @@ func TestNestedTOMLConfig(t *testing.T) {
 
 	// Create a config file with nested structure
 	configContent := `log_level = "debug"
-metric_name = "test_metric"
+prometheus_query = "test_metric"
 threshold_operator = "greater_than"
 
 [plugins.file_action]
@@ -219,7 +219,7 @@ func TestNestedThresholdConfig(t *testing.T) {
 
 	// Create a config file with new nested threshold structure
 	configContent := `log_level = "debug"
-metric_name = "test_metric"
+prometheus_query = "test_metric"
 threshold_operator = "greater_than"
 
 [soft]
@@ -346,5 +346,93 @@ func TestEnvironmentVariableThresholdConfig(t *testing.T) {
 	}
 	if config.ThresholdOperator != "less_than" {
 		t.Errorf("Expected threshold_operator 'less_than' from env, got %q", config.ThresholdOperator)
+	}
+}
+
+func TestPrometheusQueryConfig(t *testing.T) {
+	// Save original env var
+	original := os.Getenv("PROMETHEUS_QUERY")
+	defer func() {
+		if original != "" {
+			os.Setenv("PROMETHEUS_QUERY", original)
+		} else {
+			os.Unsetenv("PROMETHEUS_QUERY")
+		}
+	}()
+
+	// Test 1: Default config (no env var set) - PrometheusQuery should be empty
+	os.Unsetenv("PROMETHEUS_QUERY")
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("Test 1 failed: %v", err)
+	}
+	if config.PrometheusQuery != "" {
+		t.Errorf("Test 1 failed: expected empty PrometheusQuery, got %q", config.PrometheusQuery)
+	}
+
+	// Test 2: Simple metric name
+	os.Setenv("PROMETHEUS_QUERY", "up")
+	config, err = LoadConfig()
+	if err != nil {
+		t.Fatalf("Test 2 failed: %v", err)
+	}
+	if config.PrometheusQuery != "up" {
+		t.Errorf("Test 2 failed: expected 'up', got %q", config.PrometheusQuery)
+	}
+
+	// Test 3: Full PromQL expression with label selectors
+	expr := `up{job="prometheus",instance="localhost:9090"}`
+	os.Setenv("PROMETHEUS_QUERY", expr)
+	config, err = LoadConfig()
+	if err != nil {
+		t.Fatalf("Test 3 failed: %v", err)
+	}
+	if config.PrometheusQuery != expr {
+		t.Errorf("Test 3 failed: expected %q, got %q", expr, config.PrometheusQuery)
+	}
+
+	// Test 4: Complex PromQL expression
+	complex := "avg(node_memory_MemAvailable_bytes) / avg(node_memory_MemTotal_bytes) * 100"
+	os.Setenv("PROMETHEUS_QUERY", complex)
+	config, err = LoadConfig()
+	if err != nil {
+		t.Fatalf("Test 4 failed: %v", err)
+	}
+	if config.PrometheusQuery != complex {
+		t.Errorf("Test 4 failed: expected %q, got %q", complex, config.PrometheusQuery)
+	}
+}
+
+func TestPrometheusQueryTOMLConfig(t *testing.T) {
+	// Save current working directory
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	defer os.Chdir(originalWd)
+
+	// Clear env var to avoid interference
+	os.Unsetenv("PROMETHEUS_QUERY")
+
+	tmpDir := t.TempDir()
+	configContent := `log_level = "debug"
+prometheus_query = "rate(http_requests_total{job=\"api\"}[5m])"
+threshold_operator = "greater_than"
+`
+	configPath := tmpDir + "/config.toml"
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	os.Chdir(tmpDir)
+
+	config, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	expected := `rate(http_requests_total{job="api"}[5m])`
+	if config.PrometheusQuery != expected {
+		t.Errorf("Expected prometheus_query %q, got %q", expected, config.PrometheusQuery)
 	}
 }

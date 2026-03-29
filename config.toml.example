@@ -1,13 +1,17 @@
 # Metric Reader Configuration File
 # All settings in this file can be overridden by environment variables
-# by using uppercase names (e.g., LOG_LEVEL, METRIC_NAME)
+# by using uppercase names (e.g., LOG_LEVEL, PROMETHEUS_QUERY)
 
 # Logging configuration
 log_level = "info"  # Options: debug, info, warn, error
 
 # Metric configuration
-metric_name = "up"
-label_filters = ""  # Optional: e.g., 'job="prometheus",instance="localhost:9090"'
+# Full PromQL expression - supports any valid Prometheus query including label filters,
+# functions, and operators. Examples:
+#   prometheus_query = "up"
+#   prometheus_query = 'up{job="prometheus",instance="localhost:9090"}'
+#   prometheus_query = "avg(node_memory_MemAvailable_bytes) / avg(node_memory_MemTotal_bytes) * 100"
+prometheus_query = "up"
 
 # Threshold configuration
 threshold_operator = "greater_than"  # Options: "greater_than" or "less_than"
